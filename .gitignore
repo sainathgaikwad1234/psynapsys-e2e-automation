@@ -1,0 +1,15 @@
+node_modules/
+dist/
+playwright-report/
+test-results/
+
+# Auth session storage states (contain tokens — never commit)
+auth-sessions/
+
+# Local environment (contains credentials)
+.env.local
+.env
+
+# OS artifacts
+.DS_Store
+Thumbs.db

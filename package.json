@@ -1,0 +1,39 @@
+{
+  "name": "psynapsys-e2e",
+  "version": "1.0.0",
+  "description": "PSYNAPSYS E2E Test Framework — Playwright + TEA",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:e2e": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:regression": "playwright test --grep @regression",
+    "test:therapist": "playwright test --project=therapist-chrome",
+    "test:client": "playwright test --project=client-chrome",
+    "test:auth": "playwright test e2e/auth/",
+    "test:patients": "playwright test e2e/patients/",
+    "test:appointments": "playwright test e2e/appointments/",
+    "test:intake": "playwright test e2e/intake-forms/",
+    "test:api": "playwright test --project=api",
+    "test:report": "playwright show-report",
+    "test:codegen": "playwright codegen",
+    "setup:auth": "playwright test auth.setup.ts",
+    "clean": "rimraf test-results playwright-report",
+    "install:browsers": "playwright install --with-deps"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^9.3.0",
+    "@playwright/test": "^1.54.1",
+    "@seontechnologies/playwright-utils": "^3.14.0",
+    "@types/node": "^22.0.0",
+    "dotenv": "^16.4.7",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
