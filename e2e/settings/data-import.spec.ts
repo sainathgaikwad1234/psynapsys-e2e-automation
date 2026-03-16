@@ -1,5 +1,6 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { waitForPageReady, waitForAnimation } from '../../support/helpers/wait-helpers';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -24,7 +25,7 @@ async function goToDataImport(page: Page): Promise<void> {
   await page.goto('/app/setting/data-import');
   await expect(page).toHaveURL(/data-import/, { timeout: 15_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 }
 
 /** Create a minimal CSV file in a temp directory for file upload tests */
@@ -80,7 +81,7 @@ test.describe.serial('Data Import — Settings', () => {
       const cptTab = page.getByRole('tab', { name: /cpt/i }).first();
       if (await cptTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await cptTab.click({ force: true });
-        await page.waitForTimeout(1_000);
+        await waitForPageReady(page);
       }
 
       const hasDropzone = await page
@@ -111,7 +112,7 @@ test.describe.serial('Data Import — Settings', () => {
       const cptTab = page.getByRole('tab', { name: /cpt/i }).first();
       if (await cptTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await cptTab.click({ force: true });
-        await page.waitForTimeout(1_000);
+        await waitForPageReady(page);
       }
 
       const hasTable   = await page.locator('table').first().isVisible({ timeout: 8_000 }).catch(() => false);
@@ -134,7 +135,7 @@ test.describe.serial('Data Import — Settings', () => {
       const cptTab = page.getByRole('tab', { name: /cpt/i }).first();
       if (await cptTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await cptTab.click({ force: true });
-        await page.waitForTimeout(1_000);
+        await waitForPageReady(page);
       }
 
       // Look for hidden or visible file input
@@ -154,7 +155,7 @@ test.describe.serial('Data Import — Settings', () => {
 
       try {
         await fileInput.setInputFiles(csvPath);
-        await page.waitForTimeout(1_500);
+        await waitForPageReady(page);
         await expect(page.locator('body')).toBeVisible();
       } finally {
         fs.unlinkSync(csvPath);
@@ -173,7 +174,7 @@ test.describe.serial('Data Import — Settings', () => {
       const icdTab = page.getByRole('tab', { name: /icd/i }).first();
       if (await icdTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await icdTab.click({ force: true });
-        await page.waitForTimeout(1_000);
+        await waitForPageReady(page);
       }
 
       const hasDropzone = await page
@@ -204,7 +205,7 @@ test.describe.serial('Data Import — Settings', () => {
       const icdTab = page.getByRole('tab', { name: /icd/i }).first();
       if (await icdTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await icdTab.click({ force: true });
-        await page.waitForTimeout(1_000);
+        await waitForPageReady(page);
       }
 
       const hasTable   = await page.locator('table').first().isVisible({ timeout: 8_000 }).catch(() => false);
@@ -226,7 +227,7 @@ test.describe.serial('Data Import — Settings', () => {
       const icdTab = page.getByRole('tab', { name: /icd/i }).first();
       if (await icdTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await icdTab.click({ force: true });
-        await page.waitForTimeout(1_000);
+        await waitForPageReady(page);
       }
 
       const fileInput = page.locator('input[type="file"]').first();
@@ -241,7 +242,7 @@ test.describe.serial('Data Import — Settings', () => {
 
       try {
         await fileInput.setInputFiles(csvPath);
-        await page.waitForTimeout(1_500);
+        await waitForPageReady(page);
         await expect(page.locator('body')).toBeVisible();
       } finally {
         fs.unlinkSync(csvPath);

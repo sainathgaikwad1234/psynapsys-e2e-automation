@@ -1,4 +1,5 @@
 import { test, expect } from '../../support/merged-fixtures';
+import { waitForPageReady, waitForDropdownOptions, waitForNetworkIdle, waitForDialogOpen, waitForDialogClose } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Calendar Functional Tests (Therapist Portal)
@@ -7,12 +8,12 @@ import { test, expect } from '../../support/merged-fixtures';
  *
  * UI observed from screenshots:
  *   Toolbar: [<prev] [February 2026] [Today] [>next] [list] [grid]
- *            [Filter by Status ▼] [Select Therapist ▼] [Month ▼] [+ Add Event]
- *   • View switching: a "Month" dropdown button (not separate tab buttons)
- *   • Prev/Next: icon-only arrow buttons flanking the "Today" button
- *   • "+ Add Event" button opens the appointment booking dialog
+ *            [Filter by Status v] [Select Therapist v] [Month v] [+ Add Event]
+ *   - View switching: a "Month" dropdown button (not separate tab buttons)
+ *   - Prev/Next: icon-only arrow buttons flanking the "Today" button
+ *   - "+ Add Event" button opens the appointment booking dialog
  *
- * Read-only — no appointments are booked.
+ * Read-only -- no appointments are booked.
  *
  * @tag @regression @appointments @functional
  */
@@ -21,10 +22,10 @@ test.describe('Calendar — View Switching & Navigation', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/calendar');
     await expect(page).toHaveURL(/\/app\/calendar/, { timeout: 15_000 });
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   });
 
-  // ── TOOLBAR ───────────────────────────────────────────────────────────────
+  // -- TOOLBAR -----------------------------------------------------------------
 
   test(
     'should display the Today button and view-mode dropdown @smoke',
@@ -50,16 +51,16 @@ test.describe('Calendar — View Switching & Navigation', () => {
     },
   );
 
-  // ── VIEW SWITCHING ────────────────────────────────────────────────────────
+  // -- VIEW SWITCHING ----------------------------------------------------------
 
   test(
     'should switch to Week view via the Month dropdown @smoke',
     async ({ page }) => {
-      // The view selector is a Mantine Select textbox — the last textbox in the toolbar
+      // The view selector is a Mantine Select textbox -- the last textbox in the toolbar
       const viewDropdown = page.getByRole('textbox').last();
       await expect(viewDropdown).toBeVisible({ timeout: 8_000 });
       await viewDropdown.click();
-      await page.waitForTimeout(500);
+      await waitForDropdownOptions(page);
 
       // Select Week from the dropdown options
       const weekOption = page
@@ -73,7 +74,7 @@ test.describe('Calendar — View Switching & Navigation', () => {
         );
       await expect(weekOption.first()).toBeVisible({ timeout: 5_000 });
       await weekOption.first().click();
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
 
       // Week view shows abbreviated day-of-week column headers
       const dayHeader = page
@@ -89,7 +90,7 @@ test.describe('Calendar — View Switching & Navigation', () => {
       // View selector is the last Mantine Select textbox in the toolbar
       const viewDropdown = page.getByRole('textbox').last();
       await viewDropdown.click();
-      await page.waitForTimeout(500);
+      await waitForDropdownOptions(page);
 
       const dayOption = page
         .getByRole('option', { name: /^Day$/i })
@@ -102,7 +103,7 @@ test.describe('Calendar — View Switching & Navigation', () => {
         );
       if (await dayOption.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await dayOption.first().click();
-        await page.waitForTimeout(1_000);
+        await waitForNetworkIdle(page);
       }
       await expect(
         page.locator('[class*="calendar"],[class*="fc"]').first(),
@@ -113,20 +114,20 @@ test.describe('Calendar — View Switching & Navigation', () => {
   test(
     'should switch back to Month view via the view dropdown',
     async ({ page }) => {
-      // First switch to Week — view selector is the last Mantine Select textbox
+      // First switch to Week -- view selector is the last Mantine Select textbox
       const vd1 = page.getByRole('textbox').last();
       await vd1.click();
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page);
       const wk = page.getByRole('option', { name: /^Week$/i }).first();
       if (await wk.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await wk.click();
-        await page.waitForTimeout(800);
+        await waitForNetworkIdle(page);
       }
 
       // Now switch to Month
       const vd2 = page.getByRole('textbox').last();
       await vd2.click();
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page);
       const mo = page
         .getByRole('option', { name: /^Month$/i })
         .first()
@@ -138,7 +139,7 @@ test.describe('Calendar — View Switching & Navigation', () => {
         );
       if (await mo.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await mo.first().click();
-        await page.waitForTimeout(1_000);
+        await waitForNetworkIdle(page);
       }
       await expect(
         page.locator('[class*="calendar"],[class*="fc"]').first(),
@@ -146,7 +147,7 @@ test.describe('Calendar — View Switching & Navigation', () => {
     },
   );
 
-  // ── DATE NAVIGATION ───────────────────────────────────────────────────────
+  // -- DATE NAVIGATION ---------------------------------------------------------
 
   test(
     'should navigate to the next period @smoke',
@@ -162,7 +163,7 @@ test.describe('Calendar — View Switching & Navigation', () => {
       const nextBtn = allBtns.nth(todayIdx + 1);
       await expect(nextBtn).toBeVisible({ timeout: 5_000 });
       await nextBtn.click({ force: true });
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
 
       await expect(
         page.locator('[class*="calendar"],[class*="fc"]').first(),
@@ -184,7 +185,7 @@ test.describe('Calendar — View Switching & Navigation', () => {
       const prevBtn = allBtns.nth(todayIdx - 1);
       await expect(prevBtn).toBeVisible({ timeout: 5_000 });
       await prevBtn.click({ force: true });
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
 
       await expect(
         page.locator('[class*="calendar"],[class*="fc"]').first(),
@@ -201,11 +202,11 @@ test.describe('Calendar — View Switching & Navigation', () => {
         btns.findIndex(b => b.textContent?.trim() === 'Today'),
       );
       await allBtns.nth(todayIdx + 1).click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForNetworkIdle(page);
 
       // Click Today
       await page.getByRole('button', { name: 'Today' }).click({ force: true });
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
 
       await expect(
         page.locator('[class*="calendar"],[class*="fc"]').first(),
@@ -213,7 +214,7 @@ test.describe('Calendar — View Switching & Navigation', () => {
     },
   );
 
-  // ── ADD EVENT ─────────────────────────────────────────────────────────────
+  // -- ADD EVENT ---------------------------------------------------------------
 
   test(
     'should have the Add Event button @smoke',
@@ -230,7 +231,7 @@ test.describe('Calendar — View Switching & Navigation', () => {
       const addBtn = page.getByRole('button', { name: /add event/i }).first();
       if (await addBtn.isVisible({ timeout: 8_000 }).catch(() => false)) {
         await addBtn.click();
-        await page.waitForTimeout(1_000);
+        await waitForDialogOpen(page);
 
         const dialog = page.locator('[role="dialog"]').first();
         await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -245,7 +246,7 @@ test.describe('Calendar — View Switching & Navigation', () => {
           await page.keyboard.press('Escape');
         }
 
-        await page.waitForTimeout(500);
+        await waitForDialogClose(page);
         await expect(
           page.locator('[class*="calendar"],[class*="fc"]').first(),
         ).toBeVisible({ timeout: 5_000 });
@@ -253,7 +254,7 @@ test.describe('Calendar — View Switching & Navigation', () => {
     },
   );
 
-  // ── STATUS FILTER ─────────────────────────────────────────────────────────
+  // -- STATUS FILTER -----------------------------------------------------------
 
   test(
     'should apply a status filter and keep the calendar intact',
@@ -265,11 +266,11 @@ test.describe('Calendar — View Switching & Navigation', () => {
 
       if (await statusFilter.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await statusFilter.click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForDropdownOptions(page);
         const firstOption = page.getByRole('option').first();
         if (await firstOption.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await firstOption.click();
-          await page.waitForTimeout(1_000);
+          await waitForNetworkIdle(page);
         }
       }
 

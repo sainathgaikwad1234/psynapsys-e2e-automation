@@ -1,4 +1,16 @@
 import { test, expect } from '../../support/merged-fixtures';
+import type { Page, Locator } from '@playwright/test';
+import {
+  disableLoadingOverlay,
+  selectFirstOption,
+  fillMultiSelect,
+} from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+} from '../../support/helpers/wait-helpers';
+import { cancelDialog } from '../../support/helpers/dialog-helpers';
 
 /**
  * PSYNAPSYS — Settings CRUD Tests (Therapist Portal)
@@ -55,56 +67,25 @@ const LOCATION_UPDATED  = `${LOCATION_NAME}Upd`;
 const ROLE_NAME    = `EERole${alphaId(6)}`;
 const ROLE_UPDATED = `${ROLE_NAME}Upd`;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function disableLoadingOverlay(page: any) {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el: Element) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// ── Shared helpers ────────────────────────────────────────────────────────────
 
 /**
- * Click a Mantine Select combobox and pick the first visible option.
- * Overlay pointer-events must already be disabled.
+ * Search for a term in the page search box and wait for results.
  */
-async function selectFirstOption(page: any, fieldLocator: any) {
-  const field = fieldLocator.first ? fieldLocator.first() : fieldLocator;
-  if (!(await field.isVisible({ timeout: 2_000 }).catch(() => false))) return;
-  await field.click({ force: true });
-  await page.waitForTimeout(800);
-  // Re-disable overlay in case React re-rendered it while the dropdown was opening.
-  // This evaluate runs AFTER the dropdown opens but BEFORE we try to click the option.
-  // For most Mantine Select fields this is safe; Claim Submission Type is handled separately.
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el: Element) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  const firstOpt = page.getByRole('option').first();
-  if (await firstOpt.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await firstOpt.click({ force: true });
-    await page.waitForTimeout(300);
-  }
-}
-
-/**
- * Click a MultiSelect input, type to search, and pick the first result.
- * Used for CPT codes (API-loaded list).
- */
-async function fillMultiSelect(page: any, fieldLocator: any, query = 'a', waitMs = 2_500) {
-  const field = fieldLocator.first ? fieldLocator.first() : fieldLocator;
-  if (!(await field.isVisible({ timeout: 2_000 }).catch(() => false))) return;
-  await field.click({ force: true });
-  await page.waitForTimeout(300);
-  await field.pressSequentially(query, { delay: 50 });
-  await page.waitForTimeout(waitMs);
-  const firstOpt = page.getByRole('option').first();
-  if (await firstOpt.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await firstOpt.click({ force: true });
-    await page.waitForTimeout(300);
+async function searchIn(page: Page, term: string): Promise<void> {
+  const search = page
+    .getByRole('searchbox')
+    .first()
+    .or(page.getByPlaceholder(/search/i).first());
+  if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
+    await search.first().fill(term);
+    // Wait for results to update (debounced search)
+    await page
+      .locator('tr, [class*="card"]')
+      .filter({ hasText: term })
+      .first()
+      .waitFor({ state: 'visible', timeout: 5_000 })
+      .catch(() => {});
   }
 }
 
@@ -112,17 +93,25 @@ async function fillMultiSelect(page: any, fieldLocator: any, query = 'a', waitMs
  * Click the action-menu button in a table row and choose Edit or Delete.
  * These rows have a single unlabeled icon button that opens a Mantine Menu.
  */
-async function clickRowAction(page: any, rowLocator: any, action: 'edit' | 'delete') {
+async function clickRowAction(
+  page: Page,
+  rowLocator: Locator,
+  action: 'edit' | 'delete',
+): Promise<void> {
   const actionBtn = rowLocator.locator('button').last();
   await actionBtn.click({ force: true });
-  await page.waitForTimeout(500);
+
   const menuItem = page
     .getByRole('menuitem', { name: new RegExp(`^${action}$`, 'i') })
     .first()
-    .or(page.locator('[role="menu"] *').filter({ hasText: new RegExp(`^${action}$`, 'i') }).first());
+    .or(
+      page
+        .locator('[role="menu"] *')
+        .filter({ hasText: new RegExp(`^${action}$`, 'i') })
+        .first(),
+    );
   await expect(menuItem.first()).toBeVisible({ timeout: 5_000 });
   await menuItem.first().click({ force: true });
-  await page.waitForTimeout(500);
 }
 
 // ── 1. MACROS ─────────────────────────────────────────────────────────────────
@@ -133,16 +122,17 @@ test.describe.serial('Settings — Macros CRUD', () => {
   test('should create a new macro @smoke', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/macros/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
 
     await page.getByRole('button', { name: /add macro|add new|new macro/i }).first().click();
-    const dialog = page.locator('[role="dialog"]').first();
-    await expect(dialog).toBeVisible({ timeout: 8_000 });
+    const dialog = await waitForDialogOpen(page, 8_000);
     await disableLoadingOverlay(page);
 
     await dialog.getByRole('textbox', { name: /title/i }).first().fill(MACRO_NAME);
 
-    const content = dialog.getByRole('textbox', { name: /content/i }).first()
+    const content = dialog
+      .getByRole('textbox', { name: /content/i })
+      .first()
       .or(dialog.locator('textarea').first());
     if (await content.first().isVisible({ timeout: 2_000 }).catch(() => false)) {
       await content.first().fill('Automated E2E macro — safe to delete.');
@@ -162,34 +152,21 @@ test.describe.serial('Settings — Macros CRUD', () => {
   test('should find the created macro in the list', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/macros/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
-
-    const search = page.getByRole('searchbox').first()
-      .or(page.getByPlaceholder(/search/i).first());
-    if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await search.first().fill(MACRO_NAME);
-      await page.waitForTimeout(1_200);
-    }
+    await waitForPageReady(page);
+    await searchIn(page, MACRO_NAME);
     await expect(page.getByText(MACRO_NAME)).toBeVisible({ timeout: 10_000 });
   });
 
   test('should edit the macro title', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/macros/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
-
-    const search = page.getByRole('searchbox').first()
-      .or(page.getByPlaceholder(/search/i).first());
-    if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await search.first().fill(MACRO_NAME);
-      await page.waitForTimeout(1_200);
-    }
+    await waitForPageReady(page);
+    await searchIn(page, MACRO_NAME);
     await expect(page.getByText(MACRO_NAME)).toBeVisible({ timeout: 10_000 });
 
     await clickRowAction(page, page.locator('tr').filter({ hasText: MACRO_NAME }).first(), 'edit');
 
-    const dialog = page.locator('[role="dialog"]').first();
-    await expect(dialog).toBeVisible({ timeout: 8_000 });
+    const dialog = await waitForDialogOpen(page, 8_000);
     await disableLoadingOverlay(page);
 
     const titleInput = dialog.getByRole('textbox', { name: /title/i }).first();
@@ -205,23 +182,21 @@ test.describe.serial('Settings — Macros CRUD', () => {
   test('should delete the macro', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/macros/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
-
-    const search = page.getByRole('searchbox').first()
-      .or(page.getByPlaceholder(/search/i).first());
-    if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await search.first().fill(MACRO_UPDATED);
-      await page.waitForTimeout(1_200);
-    }
+    await waitForPageReady(page);
+    await searchIn(page, MACRO_UPDATED);
     await expect(page.getByText(MACRO_UPDATED)).toBeVisible({ timeout: 10_000 });
 
-    await clickRowAction(page, page.locator('tr').filter({ hasText: MACRO_UPDATED }).first(), 'delete');
+    await clickRowAction(
+      page,
+      page.locator('tr').filter({ hasText: MACRO_UPDATED }).first(),
+      'delete',
+    );
 
     const confirmBtn = page.getByRole('button', { name: /delete|yes|confirm/i }).last();
     if (await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await confirmBtn.click();
+      await waitForDialogClose(page, 5_000).catch(() => {});
     }
-    await page.waitForTimeout(1_500);
     await expect(page.getByText(MACRO_UPDATED)).not.toBeVisible({ timeout: 10_000 });
   });
 });
@@ -235,39 +210,34 @@ test.describe.serial('Settings — Insurance Companies CRUD', () => {
     test.setTimeout(120_000); // extra time — insurance form has many fields and API-loaded selects
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/insurance-companies/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
 
     // Specific button — not the global header "New" button
     await page.getByRole('button', { name: 'Add Insurance Company' }).click();
-    const dialog = page.locator('[role="dialog"]').first();
-    await expect(dialog).toBeVisible({ timeout: 8_000 });
-    // Fixed wait for modal API calls (replaces networkidle which can block 30+ seconds)
-    await page.waitForTimeout(3_000);
+    const dialog = await waitForDialogOpen(page, 8_000);
+    // Wait for modal API calls to complete
+    await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
     await disableLoadingOverlay(page);
 
     // Company Name (letters only)
     await dialog.getByRole('textbox', { name: 'Company Name' }).fill(INSURANCE_NAME);
 
-    // Payer ID — must match /^[A-Z0-9]{2,5}$/ (max 5 chars, uppercase)
+    // Payer ID — must match /^[A-Z0-9]{2,5}$/
     const payerInput = dialog.getByRole('textbox', { name: 'Payer ID' });
     if (await payerInput.isVisible({ timeout: 1_500 }).catch(() => false)) {
       await payerInput.fill(`P${alphaId(4)}`);
     }
 
-    // Claim Submission Type — automation-resistant pure Select (no search).
-    // Best-effort: click field, wait briefly, pick first option if it appears.
+    // Claim Submission Type — pure Select (no search)
     await disableLoadingOverlay(page);
     const claimField = dialog.getByRole('textbox', { name: /claim submission type/i });
     if (await claimField.isVisible({ timeout: 1_500 }).catch(() => false)) {
       await claimField.click({ force: true });
-      await page.waitForTimeout(1_000);
       const claimOpt = page.getByRole('option').first();
-      if (await claimOpt.isVisible({ timeout: 1_500 }).catch(() => false)) {
+      if (await claimOpt.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await claimOpt.click({ force: true });
-        await page.waitForTimeout(200);
       }
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(200);
     }
 
     // Address
@@ -275,38 +245,30 @@ test.describe.serial('Settings — Insurance Companies CRUD', () => {
     if (await addrInput.isVisible({ timeout: 1_500 }).catch(() => false)) {
       await addrInput.fill('123 E2E Test Avenue');
     }
+
     // City
     const cityInput = dialog.getByRole('textbox', { name: 'City' });
     if (await cityInput.isVisible({ timeout: 1_500 }).catch(() => false)) {
       await cityInput.fill('Testville');
     }
-    // State (Select — aria name "State", placeholder "Select or Create State")
+
+    // State (Select)
     await disableLoadingOverlay(page);
     await selectFirstOption(page, dialog.getByRole('textbox', { name: /^state$/i }));
+
     // Zip Code
     const zipInput = dialog.getByRole('textbox', { name: /zip code|zip/i }).first();
     if (await zipInput.isVisible({ timeout: 1_500 }).catch(() => false)) {
       await zipInput.fill('90001');
     }
-    // CPT Codes (MultiSelect — click to open, then type to search)
+
+    // CPT Codes (MultiSelect — API-loaded)
     await disableLoadingOverlay(page);
     const cptField = dialog.getByRole('textbox', { name: /select applicable cpt/i });
     if (await cptField.isVisible({ timeout: 1_500 }).catch(() => false)) {
-      await cptField.click({ force: true });
-      await page.waitForTimeout(1_000);
-      let cptOption = page.getByRole('option').first();
-      if (!(await cptOption.isVisible({ timeout: 1_000 }).catch(() => false))) {
-        await cptField.pressSequentially('9', { delay: 50 });
-        await page.waitForTimeout(2_000);
-        cptOption = page.getByRole('option').first();
-      }
-      if (await cptOption.isVisible({ timeout: 1_500 }).catch(() => false)) {
-        await cptOption.click({ force: true });
-        await page.waitForTimeout(200);
-      }
-      await page.keyboard.press('Tab');
-      await page.waitForTimeout(200);
+      await fillMultiSelect(page, cptField, '9');
     }
+
     // Insurance Type (Select)
     await disableLoadingOverlay(page);
     const insType = dialog.getByRole('textbox', { name: /^insurance type$/i }).first();
@@ -318,20 +280,10 @@ test.describe.serial('Settings — Insurance Companies CRUD', () => {
     await expect(saveBtn).toBeVisible({ timeout: 5_000 });
     await saveBtn.click();
 
-    // If form validation blocked save, close via native DOM click or Escape, then skip.
+    // If form validation blocked save, cancel gracefully and skip
     const dialogStillOpen = await dialog.isVisible({ timeout: 3_000 }).catch(() => false);
     if (dialogStillOpen) {
-      // Native DOM click bypasses overlay pointer-event blocking
-      const closed = await page.evaluate(() => {
-        const dlg = document.querySelector('[role="dialog"]');
-        if (!dlg) return true;
-        const btns = [...dlg.querySelectorAll('button')];
-        const cancelEl = btns.find(b => /cancel/i.test(b.textContent?.trim() ?? ''));
-        if (cancelEl) { cancelEl.click(); return true; }
-        return false;
-      });
-      if (!closed) await page.keyboard.press('Escape');
-      await page.waitForTimeout(500);
+      await cancelDialog(page);
       test.skip();
       return;
     }
@@ -341,15 +293,13 @@ test.describe.serial('Settings — Insurance Companies CRUD', () => {
   test('should find the created insurance company in the list', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/insurance-companies/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
-
-    const search = page.getByRole('searchbox').first()
-      .or(page.getByPlaceholder(/search/i).first());
-    if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await search.first().fill(INSURANCE_NAME);
-      await page.waitForTimeout(1_200);
-    }
-    const found = await page.getByText(INSURANCE_NAME).first().isVisible({ timeout: 5_000 }).catch(() => false);
+    await waitForPageReady(page);
+    await searchIn(page, INSURANCE_NAME);
+    const found = await page
+      .getByText(INSURANCE_NAME)
+      .first()
+      .isVisible({ timeout: 5_000 })
+      .catch(() => false);
     if (!found) { test.skip(); return; }
     await expect(page.getByText(INSURANCE_NAME)).toBeVisible({ timeout: 5_000 });
   });
@@ -357,22 +307,22 @@ test.describe.serial('Settings — Insurance Companies CRUD', () => {
   test('should edit the insurance company name', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/insurance-companies/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
-
-    const search = page.getByRole('searchbox').first()
-      .or(page.getByPlaceholder(/search/i).first());
-    if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await search.first().fill(INSURANCE_NAME);
-      await page.waitForTimeout(1_200);
-    }
-    const found = await page.getByText(INSURANCE_NAME).first().isVisible({ timeout: 5_000 }).catch(() => false);
+    await waitForPageReady(page);
+    await searchIn(page, INSURANCE_NAME);
+    const found = await page
+      .getByText(INSURANCE_NAME)
+      .first()
+      .isVisible({ timeout: 5_000 })
+      .catch(() => false);
     if (!found) { test.skip(); return; }
-    await expect(page.getByText(INSURANCE_NAME)).toBeVisible({ timeout: 5_000 });
 
-    await clickRowAction(page, page.locator('tr').filter({ hasText: INSURANCE_NAME }).first(), 'edit');
+    await clickRowAction(
+      page,
+      page.locator('tr').filter({ hasText: INSURANCE_NAME }).first(),
+      'edit',
+    );
 
-    const dialog = page.locator('[role="dialog"]').first();
-    await expect(dialog).toBeVisible({ timeout: 8_000 });
+    const dialog = await waitForDialogOpen(page, 8_000);
     await disableLoadingOverlay(page);
 
     const nameInput = dialog.getByRole('textbox', { name: 'Company Name' });
@@ -388,25 +338,26 @@ test.describe.serial('Settings — Insurance Companies CRUD', () => {
   test('should delete the insurance company', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/insurance-companies/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
-
-    const search = page.getByRole('searchbox').first()
-      .or(page.getByPlaceholder(/search/i).first());
-    if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await search.first().fill(INSURANCE_UPDATED);
-      await page.waitForTimeout(1_200);
-    }
-    const found = await page.getByText(INSURANCE_UPDATED).first().isVisible({ timeout: 5_000 }).catch(() => false);
+    await waitForPageReady(page);
+    await searchIn(page, INSURANCE_UPDATED);
+    const found = await page
+      .getByText(INSURANCE_UPDATED)
+      .first()
+      .isVisible({ timeout: 5_000 })
+      .catch(() => false);
     if (!found) { test.skip(); return; }
-    await expect(page.getByText(INSURANCE_UPDATED)).toBeVisible({ timeout: 5_000 });
 
-    await clickRowAction(page, page.locator('tr').filter({ hasText: INSURANCE_UPDATED }).first(), 'delete');
+    await clickRowAction(
+      page,
+      page.locator('tr').filter({ hasText: INSURANCE_UPDATED }).first(),
+      'delete',
+    );
 
     const confirmBtn = page.getByRole('button', { name: /delete|yes|confirm/i }).last();
     if (await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await confirmBtn.click();
+      await waitForDialogClose(page, 5_000).catch(() => {});
     }
-    await page.waitForTimeout(1_500);
     await expect(page.getByText(INSURANCE_UPDATED)).not.toBeVisible({ timeout: 10_000 });
   });
 });
@@ -419,11 +370,10 @@ test.describe.serial('Settings — Work Locations CRUD', () => {
   test('should create a new work location @smoke', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/work-location/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
 
     await page.getByRole('button', { name: /^add location$/i }).click();
-    const dialog = page.locator('[role="dialog"]').first();
-    await expect(dialog).toBeVisible({ timeout: 8_000 });
+    const dialog = await waitForDialogOpen(page, 8_000);
     await disableLoadingOverlay(page);
 
     // Office Name (letters only)
@@ -441,7 +391,7 @@ test.describe.serial('Settings — Work Locations CRUD', () => {
       await city.fill('Testville');
     }
 
-    // State (Select — placeholder "Select State")
+    // State (Select)
     await selectFirstOption(page, dialog.getByPlaceholder(/select state/i));
 
     // Zip code
@@ -472,26 +422,25 @@ test.describe.serial('Settings — Work Locations CRUD', () => {
   test('should find the created work location', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/work-location/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
     await expect(page.getByText(LOCATION_NAME)).toBeVisible({ timeout: 10_000 });
   });
 
   test('should edit the work location name', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/work-location/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
     await expect(page.getByText(LOCATION_NAME)).toBeVisible({ timeout: 10_000 });
 
     // Card has 3 buttons: [0] Mark as Primary, [1] edit icon, [2] delete icon
-    const locationCard = page.locator('div, section, li')
+    const locationCard = page
+      .locator('div, section, li')
       .filter({ has: page.getByText(LOCATION_NAME) })
       .filter({ has: page.getByRole('button', { name: /mark as primary/i }) })
       .first();
     await locationCard.locator('button').nth(1).click({ force: true });
-    await page.waitForTimeout(600);
 
-    const dialog = page.locator('[role="dialog"]').first();
-    await expect(dialog).toBeVisible({ timeout: 8_000 });
+    const dialog = await waitForDialogOpen(page, 8_000);
     await disableLoadingOverlay(page);
 
     const nameInput = dialog.getByRole('textbox', { name: 'Office Name' });
@@ -507,36 +456,31 @@ test.describe.serial('Settings — Work Locations CRUD', () => {
   test('should delete the work location', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/work-location/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
 
-    // The Work Location page has three sections:
-    //   "Billing Address" & "Service and Billing Address" — show the PRIMARY location (edit-only buttons)
-    //   "Work Location" cards section — shows all locations with [Mark as Primary, edit, delete] buttons
-    // The updated location may have become the primary (Billing/Service sections only).
-    // Strategy: find the card in the Work Location cards section (has "Mark as Primary" button) for
-    // LOCATION_UPDATED or LOCATION_NAME, then click delete (last button).
-    const deletableCard = page.locator('div')
+    // Work Location cards section has [Mark as Primary, edit, delete] buttons.
+    // If LOCATION_UPDATED became the primary, it moves to a different section without delete.
+    const deletableCard = page
+      .locator('div')
       .filter({ has: page.getByRole('button', { name: /mark as primary/i }) })
       .filter({ has: page.getByText(LOCATION_UPDATED) })
       .first();
 
     const isDeletable = await deletableCard.isVisible({ timeout: 5_000 }).catch(() => false);
     if (!isDeletable) {
-      // LOCATION_UPDATED is the primary — not in the cards section.
-      // Gracefully accept: the create/find/edit steps verified the full CRUD flow.
+      // Primary location — no delete available. Create/find/edit steps already verified CRUD.
       await expect(page.locator('body')).toBeVisible();
       return;
     }
 
     await deletableCard.locator('button').last().click({ force: true });
-    await page.waitForTimeout(500);
 
     const confirmBtn = page.getByRole('button', { name: /delete|yes|confirm/i }).last();
     if (await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await confirmBtn.click();
+      await waitForDialogClose(page, 5_000).catch(() => {});
     }
-    await page.waitForTimeout(1_500);
-    // Accept: card gone OR still visible (backend may block deleting the primary's record)
+    // Accept: card gone OR still visible (backend may block deleting primary's record)
     await expect(page.locator('body')).toBeVisible();
   });
 });
@@ -549,11 +493,10 @@ test.describe.serial('Settings — Roles CRUD', () => {
   test('should create a new role @smoke', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/roles-permission/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
 
     await page.getByRole('button', { name: /add new role|add role|new role/i }).first().click();
-    const dialog = page.locator('[role="dialog"]').first();
-    await expect(dialog).toBeVisible({ timeout: 8_000 });
+    const dialog = await waitForDialogOpen(page, 8_000);
     await disableLoadingOverlay(page);
 
     // Role Name (letters only)
@@ -564,15 +507,13 @@ test.describe.serial('Settings — Roles CRUD', () => {
     const createBtn = dialog.getByRole('button', { name: /create role/i }).first();
     await expect(createBtn).toBeVisible({ timeout: 5_000 });
     await createBtn.click();
-    await page.waitForTimeout(1_500);
 
     // Step 2: If permissions panel appears (dialog stays open), click "Save"
-    const stillOpen = await dialog.isVisible({ timeout: 2_000 }).catch(() => false);
+    const stillOpen = await dialog.isVisible({ timeout: 3_000 }).catch(() => false);
     if (stillOpen) {
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await saveBtn.click();
-        await page.waitForTimeout(1_000);
       }
     }
 
@@ -583,34 +524,21 @@ test.describe.serial('Settings — Roles CRUD', () => {
   test('should find the created role in the list', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/roles-permission/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
-
-    const search = page.getByRole('searchbox').first()
-      .or(page.getByPlaceholder(/search/i).first());
-    if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await search.first().fill(ROLE_NAME);
-      await page.waitForTimeout(1_200);
-    }
+    await waitForPageReady(page);
+    await searchIn(page, ROLE_NAME);
     await expect(page.getByText(ROLE_NAME)).toBeVisible({ timeout: 10_000 });
   });
 
   test('should edit the role name', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/roles-permission/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
-
-    const search = page.getByRole('searchbox').first()
-      .or(page.getByPlaceholder(/search/i).first());
-    if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await search.first().fill(ROLE_NAME);
-      await page.waitForTimeout(1_200);
-    }
+    await waitForPageReady(page);
+    await searchIn(page, ROLE_NAME);
     await expect(page.getByText(ROLE_NAME)).toBeVisible({ timeout: 10_000 });
 
     await clickRowAction(page, page.locator('tr').filter({ hasText: ROLE_NAME }).first(), 'edit');
 
-    const dialog = page.locator('[role="dialog"]').first();
-    await expect(dialog).toBeVisible({ timeout: 8_000 });
+    const dialog = await waitForDialogOpen(page, 8_000);
     await disableLoadingOverlay(page);
 
     const nameInput = dialog.getByRole('textbox', { name: /role name/i }).first();
@@ -618,16 +546,16 @@ test.describe.serial('Settings — Roles CRUD', () => {
     await nameInput.fill(ROLE_UPDATED);
 
     // Roles edit may also be 2-step
-    const createBtn = dialog.getByRole('button', { name: /create role|update role|save role/i }).first();
+    const createBtn = dialog
+      .getByRole('button', { name: /create role|update role|save role/i })
+      .first();
     if (await createBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await createBtn.click();
-      await page.waitForTimeout(1_500);
-      const stillOpen = await dialog.isVisible({ timeout: 2_000 }).catch(() => false);
+      const stillOpen = await dialog.isVisible({ timeout: 3_000 }).catch(() => false);
       if (stillOpen) {
         const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
         if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
           await saveBtn.click();
-          await page.waitForTimeout(1_000);
         }
       }
     } else {
@@ -642,23 +570,21 @@ test.describe.serial('Settings — Roles CRUD', () => {
   test('should delete the role', async ({ page }) => {
     await page.goto(ROUTE);
     await expect(page).toHaveURL(/\/app\/setting\/roles-permission/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
-
-    const search = page.getByRole('searchbox').first()
-      .or(page.getByPlaceholder(/search/i).first());
-    if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await search.first().fill(ROLE_UPDATED);
-      await page.waitForTimeout(1_200);
-    }
+    await waitForPageReady(page);
+    await searchIn(page, ROLE_UPDATED);
     await expect(page.getByText(ROLE_UPDATED)).toBeVisible({ timeout: 10_000 });
 
-    await clickRowAction(page, page.locator('tr').filter({ hasText: ROLE_UPDATED }).first(), 'delete');
+    await clickRowAction(
+      page,
+      page.locator('tr').filter({ hasText: ROLE_UPDATED }).first(),
+      'delete',
+    );
 
     const confirmBtn = page.getByRole('button', { name: /delete|yes|confirm/i }).last();
     if (await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await confirmBtn.click();
+      await waitForDialogClose(page, 5_000).catch(() => {});
     }
-    await page.waitForTimeout(1_500);
     await expect(page.getByText(ROLE_UPDATED)).not.toBeVisible({ timeout: 10_000 });
   });
 });

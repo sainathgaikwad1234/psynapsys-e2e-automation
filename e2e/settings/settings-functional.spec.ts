@@ -1,4 +1,5 @@
 import { test, expect } from '../../support/merged-fixtures';
+import { waitForPageReady, waitForDialogOpen, waitForDropdownOptions } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Settings Functional Tests (Therapist Portal)
@@ -26,7 +27,7 @@ test.describe('Settings — Roles & Permissions', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/setting/roles-permission');
     await expect(page).toHaveURL(/\/app\/setting\/roles-permission/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
   });
 
   test(
@@ -58,7 +59,7 @@ test.describe('Settings — Roles & Permissions', () => {
         .first();
       if (await addRoleBtn.isVisible({ timeout: 8_000 }).catch(() => false)) {
         await addRoleBtn.click();
-        await page.waitForTimeout(1_000);
+        await waitForDialogOpen(page);
 
         const nameField = page
           .getByLabel(/role name|name/i)
@@ -90,7 +91,7 @@ test.describe('Settings — Roles & Permissions', () => {
 
       if (await firstRoleRow.first().isVisible({ timeout: 10_000 }).catch(() => false)) {
         await firstRoleRow.first().click({ force: true });
-        await page.waitForTimeout(1_500);
+        await waitForPageReady(page);
 
         // Permissions panel / page should show module-level permissions
         const permView = page
@@ -109,7 +110,7 @@ test.describe('Settings — Staff', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/setting/staff-setting');
     await expect(page).toHaveURL(/\/app\/setting\/staff-setting/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
   });
 
   test(
@@ -136,11 +137,11 @@ test.describe('Settings — Staff', () => {
 
       if (await searchInput.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.first().fill('sahil');
-        await page.waitForTimeout(1_500);
+        await waitForDropdownOptions(page).catch(() => {});
         await expect(page.locator('body')).toBeVisible();
 
         await searchInput.first().clear();
-        await page.waitForTimeout(1_000);
+        await waitForDropdownOptions(page).catch(() => {});
         await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 10_000 });
       }
     },
@@ -166,7 +167,7 @@ test.describe('Settings — CPT Codes', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/setting/CPT-code');
     await expect(page).toHaveURL(/\/app\/setting\/CPT-code/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
   });
 
   test(
@@ -191,7 +192,7 @@ test.describe('Settings — CPT Codes', () => {
 
       if (await searchInput.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.first().fill('90837');
-        await page.waitForTimeout(1_500);
+        await waitForDropdownOptions(page).catch(() => {});
 
         // Should show matching row OR empty state
         const hasMatch = await page.getByText(/90837/i).first().isVisible({ timeout: 5_000 }).catch(() => false);
@@ -199,7 +200,7 @@ test.describe('Settings — CPT Codes', () => {
         expect(hasMatch || hasEmpty).toBe(true);
 
         await searchInput.first().clear();
-        await page.waitForTimeout(1_000);
+        await waitForDropdownOptions(page).catch(() => {});
       }
     },
   );
@@ -209,7 +210,7 @@ test.describe('Settings — CPT Codes', () => {
     async ({ page }) => {
       if (await page.locator('table').first().isVisible({ timeout: 10_000 }).catch(() => false)) {
         await page.locator('table thead th').first().click({ force: true });
-        await page.waitForTimeout(1_000);
+        await waitForPageReady(page);
         await expect(page.locator('table').first()).toBeVisible({ timeout: 5_000 });
       }
     },
@@ -239,7 +240,7 @@ test.describe('Settings — ICD-10 Codes', () => {
 
       if (await searchInput.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.first().fill('F32');
-        await page.waitForTimeout(1_500);
+        await waitForDropdownOptions(page).catch(() => {});
         await expect(page.locator('body')).toBeVisible();
         await searchInput.first().clear();
       }
@@ -253,7 +254,7 @@ test.describe('Settings — Insurance Companies', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/setting/insurance-companies');
     await expect(page).toHaveURL(/\/app\/setting\/insurance-companies/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
   });
 
   test(
@@ -287,7 +288,7 @@ test.describe('Settings — Insurance Companies', () => {
         .first();
       if (await addBtn.isVisible({ timeout: 8_000 }).catch(() => false)) {
         await addBtn.click();
-        await page.waitForTimeout(1_000);
+        await waitForDialogOpen(page);
 
         const form = page
           .locator('[role="dialog"]')
@@ -345,7 +346,7 @@ test.describe('Settings — Work Locations', () => {
       const addBtn = page.getByRole('button', { name: /add|new|create/i }).first();
       if (await addBtn.isVisible({ timeout: 8_000 }).catch(() => false)) {
         await addBtn.click();
-        await page.waitForTimeout(1_000);
+        await waitForDialogOpen(page);
 
         const form = page.locator('[role="dialog"]').first().or(page.locator('form').first());
         await expect(form.first()).toBeVisible({ timeout: 8_000 });
@@ -370,7 +371,7 @@ test.describe('Settings — Macros', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/setting/macros');
     await expect(page).toHaveURL(/\/app\/setting\/macros/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
   });
 
   test(
@@ -403,7 +404,7 @@ test.describe('Settings — Macros', () => {
         .first();
       if (await addBtn.isVisible({ timeout: 8_000 }).catch(() => false)) {
         await addBtn.click();
-        await page.waitForTimeout(1_000);
+        await waitForDialogOpen(page);
 
         const dialog = page.locator('[role="dialog"]').first();
         await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -435,7 +436,7 @@ test.describe('Settings — Availability', () => {
     async ({ page }) => {
       await page.goto('/app/setting/availability');
       await expect(page).toHaveURL(/\/app\/setting\/availability/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // Availability shows a weekly schedule grid
       const scheduleGrid = page
@@ -452,7 +453,7 @@ test.describe('Settings — Availability', () => {
     async ({ page }) => {
       await page.goto('/app/setting/availability');
       await expect(page).toHaveURL(/\/app\/setting\/availability/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // Time controls: prefer visible input[type="time"] or <select> for AM/PM
       // (getByText(/am|pm/) matches hidden <option> elements — avoid it)

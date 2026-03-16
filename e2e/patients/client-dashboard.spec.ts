@@ -1,5 +1,9 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import {
+  waitForPageReady,
+  waitForAnimation,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Dashboard (Face Sheet & Timeline) Tests (Therapist Portal)
@@ -20,7 +24,7 @@ async function resolveClientId(page: Page): Promise<string> {
   await page.goto('/app/client');
   await expect(page).toHaveURL(/\/app\/client/, { timeout: 15_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
   const firstIdCell = page.locator('table tbody tr').first().locator('td').first();
   await expect(firstIdCell).toHaveText(/^\d+$/, { timeout: 20_000 });
   return firstIdCell.innerText();
@@ -30,7 +34,7 @@ async function goToClientDashboard(page: Page, clientId: string): Promise<void> 
   await page.goto(`/app/client/${clientId}/dashboard`);
   await expect(page).toHaveURL(new RegExp(`client/${clientId}/dashboard`), { timeout: 15_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
@@ -121,7 +125,7 @@ test.describe.serial('Client Dashboard — Face Sheet & Timeline', () => {
       const faceSheetTab = page.getByRole('tab', { name: /face sheet/i }).first();
       if (await faceSheetTab.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await faceSheetTab.click({ force: true });
-        await page.waitForTimeout(800);
+        await waitForAnimation(faceSheetTab);
       }
 
       // Face Sheet should display client summary sections
@@ -159,7 +163,7 @@ test.describe.serial('Client Dashboard — Face Sheet & Timeline', () => {
       const faceSheetTab = page.getByRole('tab', { name: /face sheet/i }).first();
       if (await faceSheetTab.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await faceSheetTab.click({ force: true });
-        await page.waitForTimeout(800);
+        await waitForAnimation(faceSheetTab);
       }
 
       const hasPrint = await page
@@ -186,7 +190,7 @@ test.describe.serial('Client Dashboard — Face Sheet & Timeline', () => {
       const timelineTab = page.getByRole('tab', { name: /timeline/i }).first();
       if (await timelineTab.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await timelineTab.click({ force: true });
-        await page.waitForTimeout(1_000);
+        await waitForAnimation(timelineTab);
       }
 
       // Timeline shows activity entries or empty state
@@ -231,13 +235,13 @@ test.describe.serial('Client Dashboard — Face Sheet & Timeline', () => {
 
       // Switch to Face Sheet
       await faceSheetTab.click({ force: true });
-      await page.waitForTimeout(600);
+      await waitForAnimation(faceSheetTab);
       await expect(page.locator('body')).toBeVisible();
 
       // Switch to Timeline
       if (await timelineTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await timelineTab.click({ force: true });
-        await page.waitForTimeout(600);
+        await waitForAnimation(timelineTab);
         await expect(page.locator('body')).toBeVisible();
       }
 
@@ -251,7 +255,7 @@ test.describe.serial('Client Dashboard — Face Sheet & Timeline', () => {
     async ({ page }) => {
       await page.goto('/app/client');
       await expect(page).toHaveURL(/\/app\/client/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       const firstRow  = page.locator('table tbody tr').first();
       const nameCell  = firstRow.locator('td').nth(1);
@@ -262,7 +266,7 @@ test.describe.serial('Client Dashboard — Face Sheet & Timeline', () => {
       }
 
       await nameCell.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Should navigate to client dashboard
       const isOnDashboard = page.url().includes('/dashboard') || page.url().includes(`/client/${clientId}`);

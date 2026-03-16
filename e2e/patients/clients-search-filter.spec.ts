@@ -1,4 +1,5 @@
 import { test, expect } from '../../support/merged-fixtures';
+import { waitForNetworkIdle } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Clients List Search, Filter & Sort Tests (Therapist Portal)
@@ -49,7 +50,7 @@ test.describe('Clients — Search, Filter & Sort', () => {
 
       // Type a partial name (common in QA data)
       await searchInput.first().fill('sahil');
-      await page.waitForTimeout(1_500); // wait for debounce
+      await waitForNetworkIdle(page); // wait for debounce
 
       // Either rows reduced OR a "no results" message appeared
       const filteredCount = await page.locator('table tbody tr').count();
@@ -73,11 +74,11 @@ test.describe('Clients — Search, Filter & Sort', () => {
         .or(page.locator('input[type="search"]').first());
 
       await searchInput.first().fill('zzz_nonexistent_xyz_99999');
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
 
       // Clear the input
       await searchInput.first().clear();
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
 
       // Table rows should return
       await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 10_000 });
@@ -97,14 +98,14 @@ test.describe('Clients — Search, Filter & Sort', () => {
 
       // Click to sort ascending
       await idHeader.click({ force: true });
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
 
       // Table should still be visible (sort did not break the page)
       await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 10_000 });
 
       // Click again for descending
       await idHeader.click({ force: true });
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
       await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 10_000 });
     },
   );
@@ -118,7 +119,7 @@ test.describe('Clients — Search, Filter & Sort', () => {
         .or(page.locator('table thead th').nth(1));
 
       await nameHeader.click({ force: true });
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
       await expect(page.locator('table tbody tr').first()).toBeVisible({ timeout: 10_000 });
     },
   );

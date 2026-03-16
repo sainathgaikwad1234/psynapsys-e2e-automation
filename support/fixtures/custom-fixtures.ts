@@ -3,7 +3,8 @@ import { authenticate, extractToken } from '../auth/auth-provider';
 import { createPatient } from '../factories/patient-factory';
 import { createAppointment } from '../factories/appointment-factory';
 
-const API_URL = process.env.API_URL || 'http://localhost:8000';
+// Bug fix: API_URL already ends in /api — paths are relative (avoids double /api/api/ bug)
+const API_BASE = process.env.API_URL || 'https://qa.api.psynap-sys.com/api';
 
 // ------------------------------------------------------------------
 // Custom fixture types
@@ -53,9 +54,10 @@ export const test = base.extend<CustomFixtures>({
     const token = extractToken(storageState);
 
     const authRequest = await base.request.newContext({
-      baseURL: API_URL,
+      baseURL: API_BASE,
       extraHTTPHeaders: {
         Authorization: `Bearer ${token}`,
+        'Tenant-Name': 'test',
         'Content-Type': 'application/json',
       },
     });
@@ -84,7 +86,7 @@ export const test = base.extend<CustomFixtures>({
   testPatient: async ({ authRequest }, use) => {
     const patientData = createPatient();
 
-    const response = await authRequest.post(`${API_URL}/api/patients/`, {
+    const response = await authRequest.post('/patients/', {
       data: patientData,
     });
 
@@ -99,7 +101,7 @@ export const test = base.extend<CustomFixtures>({
       ...patientData,
       id: created.id,
       cleanup: async () => {
-        await authRequest.delete(`${API_URL}/api/patients/${created.id}/`).catch(() => {
+        await authRequest.delete(`/patients/${created.id}/`).catch(() => {
           // Ignore cleanup errors — test data may already be removed
         });
       },
@@ -115,7 +117,7 @@ export const test = base.extend<CustomFixtures>({
   testAppointment: async ({ authRequest, testPatient }, use) => {
     const appointmentData = createAppointment({ patientId: testPatient.id });
 
-    const response = await authRequest.post(`${API_URL}/api/appointments/`, {
+    const response = await authRequest.post('/appointments/', {
       data: appointmentData,
     });
 
@@ -130,7 +132,7 @@ export const test = base.extend<CustomFixtures>({
       ...appointmentData,
       id: created.id,
       cleanup: async () => {
-        await authRequest.delete(`${API_URL}/api/appointments/${created.id}/`).catch(() => {});
+        await authRequest.delete(`/appointments/${created.id}/`).catch(() => {});
       },
     };
 

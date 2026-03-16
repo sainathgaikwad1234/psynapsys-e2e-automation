@@ -1,5 +1,6 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { waitForPageReady, waitForAnimation } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Appointment Notifications Settings Tests (Therapist Portal)
@@ -22,7 +23,7 @@ test.describe('Appointment Notifications Settings', () => {
     await page.goto('/app/setting/appointment-notifications');
     await expect(page).toHaveURL(/appointment-notifications/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -86,7 +87,7 @@ test.describe('Appointment Notifications Settings', () => {
       }
 
       await cancelTab.first().click({ force: true });
-      await page.waitForTimeout(1_000);
+      await waitForPageReady(page);
       await expect(page.locator('body')).toBeVisible();
     },
   );
@@ -108,7 +109,7 @@ test.describe('Appointment Notifications Settings', () => {
       }
 
       await rescheduleTab.first().click({ force: true });
-      await page.waitForTimeout(1_000);
+      await waitForPageReady(page);
       await expect(page.locator('body')).toBeVisible();
     },
   );
@@ -127,14 +128,14 @@ test.describe('Appointment Notifications Settings', () => {
       const count = await toggles.count().catch(() => 0);
       if (count > 0) {
         await toggles.first().click({ force: true }).catch(() => {});
-        await page.waitForTimeout(400);
+        await waitForAnimation(page.locator('body'));
       }
 
       // Save if button is present
       const saveBtn = page.getByRole('button', { name: /^save$|^update$|^apply$/i }).last();
       if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await saveBtn.click({ force: true });
-        await page.waitForTimeout(2_000);
+        await waitForPageReady(page);
       }
 
       await expect(page.locator('body')).toBeVisible();

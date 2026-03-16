@@ -1,5 +1,13 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForAnimation,
+  waitForNetworkIdle,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Waitlist CRUD Tests (Therapist Portal)
@@ -21,15 +29,7 @@ import { type Page } from '@playwright/test';
  */
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
 
@@ -38,8 +38,7 @@ test.describe.serial('Waitlist — CRUD', () => {
   async function goToWaitlist(page: Page): Promise<void> {
     await page.goto('/app/client/waitlist');
     await expect(page).toHaveURL(/\/app\/client\/waitlist/, { timeout: 15_000 });
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -93,7 +92,7 @@ test.describe.serial('Waitlist — CRUD', () => {
       }
 
       await archivedBtn.click({ force: true });
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
       await expect(page.locator('body')).toBeVisible();
     },
   );
@@ -121,7 +120,7 @@ test.describe.serial('Waitlist — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /^edit$/i }).first();
       if (!(await editItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -131,7 +130,7 @@ test.describe.serial('Waitlist — CRUD', () => {
       }
 
       await editItem.click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -167,7 +166,7 @@ test.describe.serial('Waitlist — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const hasAddAsConsult = await page
         .getByRole('menuitem', { name: /add as consultation/i })
@@ -205,7 +204,7 @@ test.describe.serial('Waitlist — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const addAsConsultItem = page
         .getByRole('menuitem', { name: /add as consultation/i })
@@ -217,7 +216,7 @@ test.describe.serial('Waitlist — CRUD', () => {
       }
 
       await addAsConsultItem.click();
-      await page.waitForTimeout(1_500);
+      await waitForNetworkIdle(page);
 
       // After "Add as Consultation", the appointment booking form auto-opens
       const dialog = page.locator('[role="dialog"]').first();
@@ -259,7 +258,7 @@ test.describe.serial('Waitlist — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const archiveItem = page
         .getByRole('menuitem', { name: /archive/i })
@@ -271,7 +270,7 @@ test.describe.serial('Waitlist — CRUD', () => {
       }
 
       await archiveItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page).catch(() => {});
 
       // Confirm archive if confirmation dialog appears
       const confirmModal = page.locator('[role="dialog"]').first();
@@ -281,7 +280,7 @@ test.describe.serial('Waitlist — CRUD', () => {
           .last();
         if (await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await confirmBtn.click({ force: true });
-          await page.waitForTimeout(2_000);
+          await waitForDialogClose(page);
         }
         // Graceful close
         const dialogClosed = await confirmModal.isHidden({ timeout: 5_000 }).catch(() => false);
@@ -316,7 +315,7 @@ test.describe.serial('Waitlist — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /delete/i }).first();
       if (!(await deleteItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -326,7 +325,7 @@ test.describe.serial('Waitlist — CRUD', () => {
       }
 
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page).catch(() => {});
 
       const confirmModal = page.locator('[role="dialog"]').first();
       if (!(await confirmModal.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -339,7 +338,7 @@ test.describe.serial('Waitlist — CRUD', () => {
         .last();
       if (await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await confirmBtn.click({ force: true });
-        await page.waitForTimeout(2_000);
+        await waitForDialogClose(page);
       }
 
       const dialogClosed = await confirmModal.isHidden({ timeout: 5_000 }).catch(() => false);

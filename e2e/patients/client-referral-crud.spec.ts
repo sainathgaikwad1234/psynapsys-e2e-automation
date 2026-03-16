@@ -1,5 +1,13 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForAnimation,
+  waitForDropdownOptions,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Referral CRUD Tests (Out-Referral)
@@ -22,14 +30,7 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-/** Disable Mantine LoadingOverlay so form fields are clickable */
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 /** Today's date as MM/DD/YYYY */
 function todayFormatted(): string {
@@ -64,12 +65,12 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
     async ({ page }) => {
       await page.goto(`/app/client/${clientId}/referrals/referral_out`);
       await expect(page).toHaveURL(/referrals\/referral_out/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const addBtn = page.getByRole('button', { name: /add referral/i }).first();
       await expect(addBtn).toBeVisible({ timeout: 10_000 });
       await addBtn.click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const modal = page.locator('[role="dialog"]').first();
       await expect(modal).toBeVisible({ timeout: 8_000 });
@@ -83,11 +84,11 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
     async ({ page }) => {
       await page.goto(`/app/client/${clientId}/referrals/referral_out`);
       await expect(page).toHaveURL(/referrals\/referral_out/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Open modal
       await page.getByRole('button', { name: /add referral/i }).first().click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const modal = page.locator('[role="dialog"]').first();
       await expect(modal).toBeVisible({ timeout: 8_000 });
@@ -97,43 +98,42 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
       // Client Name — select first available option then Tab to close dropdown
       const clientInput = modal.getByPlaceholder(/select client/i).first();
       await clientInput.click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDropdownOptions(page).catch(() => {});
       const clientOpt = page.getByRole('option').first();
       if (await clientOpt.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await clientOpt.click({ force: true });
       }
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('body')); // dropdown close guard
 
       // Referral From — click to open, try select first option
       const referralFromInput = modal.getByPlaceholder(/select referral from/i).first();
       await referralFromInput.click({ force: true });
-      await page.waitForTimeout(1_000);
+      await waitForDropdownOptions(page).catch(() => {});
       let fromOption = page.getByRole('option').first();
       if (!(await fromOption.isVisible({ timeout: 2_000 }).catch(() => false))) {
         // Try triggering search by typing
         await page.keyboard.type('a');
-        await page.waitForTimeout(800);
+        await waitForDropdownOptions(page).catch(() => {});
         fromOption = page.getByRole('option').first();
       }
       if (await fromOption.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await fromOption.click({ force: true });
       }
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('body')); // dropdown close guard
 
       // Referral To — type to trigger search, then pick first option
       const referralToInput = modal.getByPlaceholder(/select referral to/i).first();
       await referralToInput.click({ force: true });
-      await page.waitForTimeout(300);
       await page.keyboard.type('a');
-      await page.waitForTimeout(800);
+      await waitForDropdownOptions(page).catch(() => {});
       const toOption = page.getByRole('option').first();
       if (await toOption.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await toOption.click({ force: true });
       }
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('body')); // dropdown close guard
 
       // Date — use Tab to dismiss datepicker, NOT Escape (Escape closes the modal)
       const dateInput = modal.getByRole('textbox', { name: /^date$/i }).first()
@@ -141,19 +141,19 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
       await dateInput.click({ force: true });
       await dateInput.fill(todayFormatted());
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(300);
+      await waitForAnimation(page.locator('body')); // datepicker dismiss guard
 
       // Response Status — click and pick first option
       const statusInput = modal.getByRole('textbox', { name: /response status/i }).first()
         .or(modal.getByPlaceholder(/response status|select status/i).first());
       await statusInput.click({ force: true });
-      await page.waitForTimeout(600);
+      await waitForDropdownOptions(page).catch(() => {});
       const statusOption = page.getByRole('option').first();
       if (await statusOption.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await statusOption.click({ force: true });
       }
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(300);
+      await waitForAnimation(page.locator('body')); // dropdown close guard
 
       // Referral Reason (optional)
       const reasonInput = modal.getByPlaceholder(/enter referral reason/i).first();
@@ -165,7 +165,7 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
       const saveBtn = modal.getByRole('button', { name: /^save$/i }).first();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       // Modal should close
       await expect(page.locator('[role="dialog"]')).toBeHidden({ timeout: 10_000 });
@@ -182,7 +182,7 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
     async ({ page }) => {
       await page.goto(`/app/client/${clientId}/referrals/referral_out`);
       await expect(page).toHaveURL(/referrals\/referral_out/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // Table should have at least one row
       const tableBody = page.locator('table tbody tr');
@@ -204,7 +204,7 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
     async ({ page }) => {
       await page.goto(`/app/client/${clientId}/referrals/referral_out`);
       await expect(page).toHaveURL(/referrals\/referral_out/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       const firstRow = page.locator('table tbody tr').first();
       if (!(await firstRow.isVisible({ timeout: 8_000 }).catch(() => false))) {
@@ -215,37 +215,35 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
       // Open action menu on first row
       const menuBtn = firstRow.locator('button').last();
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /edit/i }).first();
       await expect(editItem).toBeVisible({ timeout: 5_000 });
       await editItem.click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const modal = page.locator('[role="dialog"]').first();
       await expect(modal).toBeVisible({ timeout: 8_000 });
       // Wait for async data to fully pre-fill the form
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
-      await page.waitForTimeout(300);
 
       // Re-register Referral From in React form state (pre-filled value is visual only,
       // not in form state — type to search and re-select)
       const referralFromEdit = modal.getByPlaceholder(/select referral from/i).first();
       if (await referralFromEdit.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await referralFromEdit.click({ force: true });
-        await page.waitForTimeout(300);
         await page.keyboard.type('a');
-        await page.waitForTimeout(1_000);
+        await waitForDropdownOptions(page).catch(() => {});
         const fromOpt = page.getByRole('option').first();
         if (await fromOpt.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await fromOpt.click({ force: true });
           await page.keyboard.press('Tab');
-          await page.waitForTimeout(300);
+          await waitForAnimation(page.locator('body')); // dropdown close guard
         } else {
           // No options — press Tab (value clears, but can't do better without data)
           await page.keyboard.press('Tab');
-          await page.waitForTimeout(300);
+          await waitForAnimation(page.locator('body')); // dropdown close guard
         }
       }
 
@@ -253,15 +251,14 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
       const referralToEdit = modal.getByPlaceholder(/select referral to/i).first();
       if (await referralToEdit.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await referralToEdit.click({ force: true });
-        await page.waitForTimeout(300);
         await page.keyboard.type('a');
-        await page.waitForTimeout(800);
+        await waitForDropdownOptions(page).catch(() => {});
         const toOpt = page.getByRole('option').first();
         if (await toOpt.isVisible({ timeout: 2_000 }).catch(() => false)) {
           await toOpt.click({ force: true });
         }
         await page.keyboard.press('Tab');
-        await page.waitForTimeout(300);
+        await waitForAnimation(page.locator('body')); // dropdown close guard
       }
 
       // Update Referral Reason
@@ -282,7 +279,7 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
 
       await saveBtn.click({ force: true });
       const resp = await editApiResp;
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       // If backend returned an error, close the dialog manually and accept
       if (resp && resp.status() >= 400) {
@@ -307,11 +304,10 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
     async ({ page }) => {
       await page.goto(`/app/client/${clientId}/referrals/referral_out`);
       await expect(page).toHaveURL(/referrals\/referral_out/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // Wait for table to fully render before counting
       await page.locator('table tbody tr').first().waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
-      await page.waitForTimeout(1_000);
       const firstRow = page.locator('table tbody tr').first();
       if (!(await firstRow.isVisible({ timeout: 5_000 }).catch(() => false))) {
         test.skip();
@@ -325,12 +321,12 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
       // Open action menu and click Delete
       const menuBtn = firstRow.locator('button').last();
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /delete/i }).first();
       await expect(deleteItem).toBeVisible({ timeout: 5_000 });
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       // Confirm deletion
       const confirmModal = page.locator('[role="dialog"]').first();
@@ -349,7 +345,7 @@ test.describe.serial('Client Referral — CRUD (Out-Referral)', () => {
       const dialogClosed = await confirmModal
         .waitFor({ state: 'hidden', timeout: 5_000 })
         .then(() => true).catch(() => false);
-      await page.waitForTimeout(2_000); // allow table to refresh
+      await waitForPageReady(page); // allow table to refresh
 
       // Accept any of: dialog closed (UI processed delete), row count decreased,
       // success notification, or specific row no longer visible.

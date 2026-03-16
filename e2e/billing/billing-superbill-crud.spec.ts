@@ -1,5 +1,6 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { waitForPageReady, waitForDialogOpen, waitForDialogClose, waitForDropdownOptions, waitForNetworkIdle } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Global Superbill CRUD Tests (Therapist Portal)
@@ -11,25 +12,24 @@ import { type Page } from '@playwright/test';
  *   - View superbill detail
  *   - Generate Invoice from superbill
  *   - Delete superbill
- *   - Create superbill → /app/billing/superbill/create-super-bill
+ *   - Create superbill -> /app/billing/superbill/create-super-bill
  *
  * @tag @regression @billing @superbill
  */
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- Helpers -------------------------------------------------------------------
 
 async function goToSuperbill(page: Page): Promise<void> {
   await page.goto('/app/billing/superbill');
   await expect(page).toHaveURL(/billing\/superbill/, { timeout: 15_000 });
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 }
 
-// ── Suite ─────────────────────────────────────────────────────────────────────
+// -- Suite ---------------------------------------------------------------------
 
 test.describe.serial('Global Billing — Superbill CRUD', () => {
 
-  // ── READ ─────────────────────────────────────────────────────────────────
+  // -- READ -------------------------------------------------------------------
 
   test(
     'should display the Superbill page @smoke',
@@ -71,15 +71,14 @@ test.describe.serial('Global Billing — Superbill CRUD', () => {
     },
   );
 
-  // ── CREATE ────────────────────────────────────────────────────────────────
+  // -- CREATE ------------------------------------------------------------------
 
   test(
     'should navigate to Create Superbill page @smoke',
     { annotation: [{ type: 'skipNetworkMonitoring' }] },
     async ({ page }) => {
       await page.goto('/app/billing/superbill/create-super-bill');
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // May redirect back to superbill list if creation requires prior data
       const isOnCreate = page.url().includes('create-super-bill') || page.url().includes('superbill');
@@ -95,8 +94,7 @@ test.describe.serial('Global Billing — Superbill CRUD', () => {
     { annotation: [{ type: 'skipNetworkMonitoring' }] },
     async ({ page }) => {
       await page.goto('/app/billing/superbill/create-super-bill');
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       const hasForm    = await page.locator('form').first().isVisible({ timeout: 5_000 }).catch(() => false);
       const hasSelect  = await page.getByRole('combobox').first().isVisible({ timeout: 5_000 }).catch(() => false);
@@ -107,7 +105,7 @@ test.describe.serial('Global Billing — Superbill CRUD', () => {
     },
   );
 
-  // ── ACTION MENU (View / Generate Invoice / Delete) ────────────────────────
+  // -- ACTION MENU (View / Generate Invoice / Delete) --------------------------
 
   test(
     'should show superbill action menu if record exists @smoke',
@@ -128,7 +126,7 @@ test.describe.serial('Global Billing — Superbill CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const hasView     = await page.getByRole('menuitem', { name: /^view$/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasGenerate = await page.getByRole('menuitem', { name: /generate invoice/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
@@ -158,7 +156,7 @@ test.describe.serial('Global Billing — Superbill CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const viewItem = page.getByRole('menuitem', { name: /^view$/i }).first();
       if (!(await viewItem.isVisible({ timeout: 3_000 }).catch(() => false))) {
@@ -168,7 +166,7 @@ test.describe.serial('Global Billing — Superbill CRUD', () => {
       }
 
       await viewItem.click();
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       const isDialog = await dialog.isVisible({ timeout: 5_000 }).catch(() => false);
@@ -206,7 +204,7 @@ test.describe.serial('Global Billing — Superbill CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const generateItem = page.getByRole('menuitem', { name: /generate invoice/i }).first();
       const hasGenerate  = await generateItem.isVisible({ timeout: 3_000 }).catch(() => false);
@@ -219,7 +217,7 @@ test.describe.serial('Global Billing — Superbill CRUD', () => {
     },
   );
 
-  // ── DELETE ────────────────────────────────────────────────────────────────
+  // -- DELETE ------------------------------------------------------------------
 
   test(
     'should delete superbill entry with confirmation @smoke',
@@ -238,7 +236,7 @@ test.describe.serial('Global Billing — Superbill CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const deleteItem = page.getByRole('menuitem', { name: /delete/i }).first();
       if (!(await deleteItem.isVisible({ timeout: 3_000 }).catch(() => false))) {
@@ -248,7 +246,7 @@ test.describe.serial('Global Billing — Superbill CRUD', () => {
       }
 
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page).catch(() => {});
 
       const confirmModal = page.locator('[role="dialog"]').first();
       if (await confirmModal.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -257,7 +255,7 @@ test.describe.serial('Global Billing — Superbill CRUD', () => {
           .last();
         if (await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await confirmBtn.click({ force: true });
-          await page.waitForTimeout(2_000);
+          await waitForDialogClose(page);
         }
 
         const dialogClosed = await confirmModal.isHidden({ timeout: 5_000 }).catch(() => false);

@@ -1,5 +1,7 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import { waitForPageReady, waitForDialogOpen, waitForDialogClose, waitForDropdownOptions, waitForNetworkIdle } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Book Appointment UI Tests (Therapist Portal)
@@ -13,36 +15,27 @@ import { type Page } from '@playwright/test';
  *   These tests cover everything UP TO submission:
  *     - Form opens from both entry points (Calendar "New" and client profile "Book Appointment")
  *     - All expected fields are present and interactable
- *     - Stage type switching (Appointment ↔ Consultation)
- *     - Appointment type switching (Individual ↔ Group)
+ *     - Stage type switching (Appointment <-> Consultation)
+ *     - Appointment type switching (Individual <-> Group)
  *     - Form field filling (date/time, client, CPT code, therapist, session type)
  *     - Disabled submit button with Google Sync tooltip
  *     - Cancel / close without submitting
  *
  * Entry points:
- *   1. Calendar page → "New" / "Add Event" button → Modal → Appointment tab
- *   2. Client profile header → "Book Appointment" button → Modal
+ *   1. Calendar page -> "New" / "Add Event" button -> Modal -> Appointment tab
+ *   2. Client profile header -> "Book Appointment" button -> Modal
  *
  * @tag @regression @appointments @book-appointment
  */
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// -- Helpers -------------------------------------------------------------------
+// disableLoadingOverlay is imported from mantine-helpers
 
 /** Reads the first client ID from the clients list table */
 async function resolveClientId(page: Page): Promise<string> {
   await page.goto('/app/client');
   await expect(page).toHaveURL(/\/app\/client/, { timeout: 15_000 });
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 
   const firstIdCell = page.locator('table tbody tr').first().locator('td').first();
   await expect(firstIdCell).toHaveText(/^\d+$/, { timeout: 20_000 });
@@ -59,14 +52,14 @@ async function closeDialog(page: Page): Promise<void> {
     .first();
   if (await closeBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
     await closeBtn.click({ force: true });
-    await page.waitForTimeout(600);
+    await waitForDialogClose(page);
   } else {
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(600);
+    await waitForDialogClose(page);
   }
 }
 
-// ── Suite ─────────────────────────────────────────────────────────────────────
+// -- Suite ---------------------------------------------------------------------
 
 test.describe.serial('Book Appointment — UI Form', () => {
 
@@ -79,7 +72,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     await ctx.close();
   });
 
-  // ── 1. OPEN FROM CALENDAR ─────────────────────────────────────────────────
+  // -- 1. OPEN FROM CALENDAR ---------------------------------------------------
 
   test(
     'should open Book Appointment modal from Calendar "New" button @smoke',
@@ -87,7 +80,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     async ({ page }) => {
       await page.goto('/app/calendar');
       await expect(page).toHaveURL(/\/app\/calendar/, { timeout: 15_000 });
-      await page.waitForTimeout(2_500);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       // The "New" / "Add Event" button is in the calendar header
@@ -98,7 +91,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
 
       await expect(newBtn.first()).toBeVisible({ timeout: 10_000 });
       await newBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -113,7 +106,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     async ({ page }) => {
       await page.goto('/app/calendar');
       await expect(page).toHaveURL(/\/app\/calendar/, { timeout: 15_000 });
-      await page.waitForTimeout(2_500);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       const newBtn = page
@@ -121,7 +114,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
         .first()
         .or(page.locator('button').filter({ hasText: /^New$/ }).first());
       await newBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -135,7 +128,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
 
       if (await apptTab.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await apptTab.first().click({ force: true });
-        await page.waitForTimeout(600);
+        await waitForNetworkIdle(page);
       }
 
       await expect(dialog).toBeVisible({ timeout: 5_000 });
@@ -143,7 +136,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     },
   );
 
-  // ── 2. OPEN FROM CLIENT PROFILE ───────────────────────────────────────────
+  // -- 2. OPEN FROM CLIENT PROFILE ---------------------------------------------
 
   test(
     'should open Book Appointment modal from client profile header @smoke',
@@ -152,7 +145,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
       // Navigate to a client sub-route that renders the full ClientHeader with Book Appointment button
       await page.goto(`/app/client/${clientId}/records/visit-notes`);
       await expect(page).toHaveURL(new RegExp(`/app/client/${clientId}`), { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       const bookBtn = page
@@ -161,7 +154,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
 
       await expect(bookBtn).toBeVisible({ timeout: 10_000 });
       await bookBtn.click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -176,12 +169,12 @@ test.describe.serial('Book Appointment — UI Form', () => {
     async ({ page }) => {
       await page.goto(`/app/client/${clientId}/records/visit-notes`);
       await expect(page).toHaveURL(new RegExp(`/app/client/${clientId}`), { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       const bookBtn = page.getByRole('button', { name: /book appointment/i }).first();
       await bookBtn.click({ force: true });
-      await page.waitForTimeout(1_000);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -206,7 +199,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     },
   );
 
-  // ── 3. FORM FIELDS ────────────────────────────────────────────────────────
+  // -- 3. FORM FIELDS ----------------------------------------------------------
 
   test(
     'should display all required appointment form fields @smoke',
@@ -214,7 +207,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     async ({ page }) => {
       await page.goto('/app/calendar');
       await expect(page).toHaveURL(/\/app\/calendar/, { timeout: 15_000 });
-      await page.waitForTimeout(2_500);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       const newBtn = page
@@ -222,7 +215,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
         .first()
         .or(page.locator('button').filter({ hasText: /^New$/ }).first());
       await newBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -232,7 +225,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
       const apptTab = dialog.getByRole('tab', { name: /^appointment$/i }).first();
       if (await apptTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await apptTab.click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForNetworkIdle(page);
       }
       await disableLoadingOverlay(page);
 
@@ -264,7 +257,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
       test.setTimeout(90_000);
       await page.goto('/app/calendar');
       await expect(page).toHaveURL(/\/app\/calendar/, { timeout: 15_000 });
-      await page.waitForTimeout(2_500);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       const newBtn = page
@@ -272,7 +265,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
         .first()
         .or(page.locator('button').filter({ hasText: /^New$/ }).first());
       await newBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -282,25 +275,23 @@ test.describe.serial('Book Appointment — UI Form', () => {
       const apptTab = dialog.getByRole('tab', { name: /^appointment$/i }).first();
       if (await apptTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await apptTab.click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForNetworkIdle(page);
       }
       await disableLoadingOverlay(page);
 
-      // Fill Title — placeholder: "Enter Title (External Calendar Title)"
+      // Fill Title -- placeholder: "Enter Title (External Calendar Title)"
       const titleInput = dialog.locator('input[placeholder*="Title" i]').first();
       if (await titleInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await titleInput.click({ force: true });
         await titleInput.fill('E2E Test Appointment');
-        await page.waitForTimeout(300);
       }
 
-      // Fill Date/Time — Mantine DateTimePicker, placeholder: "Select Date & Time"
+      // Fill Date/Time -- Mantine DateTimePicker, placeholder: "Select Date & Time"
       const dateInput = dialog.locator('input[placeholder*="Date" i]').first();
       if (await dateInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await dateInput.click({ force: true });
         await dateInput.fill('03/25/2026 10:00 AM');
         await page.keyboard.press('Tab');
-        await page.waitForTimeout(300);
       }
 
       await expect(dialog).toBeVisible({ timeout: 5_000 });
@@ -315,7 +306,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
       test.setTimeout(90_000);
       await page.goto('/app/calendar');
       await expect(page).toHaveURL(/\/app\/calendar/, { timeout: 15_000 });
-      await page.waitForTimeout(2_500);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       const newBtn = page
@@ -323,7 +314,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
         .first()
         .or(page.locator('button').filter({ hasText: /^New$/ }).first());
       await newBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -333,11 +324,11 @@ test.describe.serial('Book Appointment — UI Form', () => {
       const apptTab = dialog.getByRole('tab', { name: /^appointment$/i }).first();
       if (await apptTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await apptTab.click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForNetworkIdle(page);
       }
       await disableLoadingOverlay(page);
 
-      // Client / Patient select field — from calendar form, not from client profile form
+      // Client / Patient select field -- from calendar form, not from client profile form
       // (client profile form doesn't show a client field since client is from URL context)
       const clientInput = dialog
         .locator('input[placeholder*="client" i], input[placeholder*="patient" i], input[placeholder*="Select Client" i]')
@@ -351,12 +342,12 @@ test.describe.serial('Book Appointment — UI Form', () => {
 
       await clientInput.click({ force: true });
       await clientInput.pressSequentially('e', { delay: 50 });
-      await page.waitForTimeout(2_500);
+      await waitForDropdownOptions(page);
 
       const firstOption = page.getByRole('option').first();
       if (await firstOption.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await firstOption.click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForNetworkIdle(page);
       }
 
       await expect(dialog).toBeVisible({ timeout: 5_000 });
@@ -364,7 +355,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     },
   );
 
-  // ── 4. STAGE TYPE SWITCHING ───────────────────────────────────────────────
+  // -- 4. STAGE TYPE SWITCHING -------------------------------------------------
 
   test(
     'should switch stage type from Appointment to Consultation @smoke',
@@ -372,7 +363,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     async ({ page }) => {
       await page.goto('/app/calendar');
       await expect(page).toHaveURL(/\/app\/calendar/, { timeout: 15_000 });
-      await page.waitForTimeout(2_500);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       const newBtn = page
@@ -380,7 +371,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
         .first()
         .or(page.locator('button').filter({ hasText: /^New$/ }).first());
       await newBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -390,11 +381,11 @@ test.describe.serial('Book Appointment — UI Form', () => {
       const apptTab = dialog.getByRole('tab', { name: /^appointment$/i }).first();
       if (await apptTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await apptTab.click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForNetworkIdle(page);
       }
       await disableLoadingOverlay(page);
 
-      // Stage type select — "Book Appointment" or "Book Consultation" dropdown
+      // Stage type select -- "Book Appointment" or "Book Consultation" dropdown
       const stageSelect = dialog
         .locator('input[placeholder*="stage" i]')
         .first()
@@ -402,7 +393,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
 
       if (await stageSelect.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await stageSelect.first().click({ force: true });
-        await page.waitForTimeout(400);
+        await waitForDropdownOptions(page);
 
         // Look for "Consultation" option
         const consultOpt = page
@@ -410,7 +401,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
           .first();
         if (await consultOpt.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await consultOpt.click({ force: true });
-          await page.waitForTimeout(500);
+          await waitForNetworkIdle(page);
           // Consultation type: CPT codes become optional
           await expect(dialog).toBeVisible({ timeout: 5_000 });
         }
@@ -426,7 +417,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     async ({ page }) => {
       await page.goto('/app/calendar');
       await expect(page).toHaveURL(/\/app\/calendar/, { timeout: 15_000 });
-      await page.waitForTimeout(2_500);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       const newBtn = page
@@ -434,7 +425,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
         .first()
         .or(page.locator('button').filter({ hasText: /^New$/ }).first());
       await newBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -444,7 +435,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
       const apptTab = dialog.getByRole('tab', { name: /^appointment$/i }).first();
       if (await apptTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await apptTab.click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForNetworkIdle(page);
       }
       await disableLoadingOverlay(page);
 
@@ -457,7 +448,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
 
       if (await groupBtn.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await groupBtn.first().click({ force: true });
-        await page.waitForTimeout(600);
+        await waitForNetworkIdle(page);
         // After switching to Group, client field becomes "Client Group" selector
         await expect(dialog).toBeVisible({ timeout: 5_000 });
       } else {
@@ -468,7 +459,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     },
   );
 
-  // ── 5. DISABLED SUBMIT (GOOGLE SYNC) ─────────────────────────────────────
+  // -- 5. DISABLED SUBMIT (GOOGLE SYNC) ----------------------------------------
 
   test(
     'should show Book Appointment button in disabled state without Google Sync @smoke',
@@ -476,7 +467,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     async ({ page }) => {
       await page.goto('/app/calendar');
       await expect(page).toHaveURL(/\/app\/calendar/, { timeout: 15_000 });
-      await page.waitForTimeout(2_500);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       const newBtn = page
@@ -484,7 +475,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
         .first()
         .or(page.locator('button').filter({ hasText: /^New$/ }).first());
       await newBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -494,14 +485,13 @@ test.describe.serial('Book Appointment — UI Form', () => {
       const apptTab = dialog.getByRole('tab', { name: /^appointment$/i }).first();
       if (await apptTab.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await apptTab.click({ force: true });
-        await page.waitForTimeout(600);
+        await waitForNetworkIdle(page);
       }
       await disableLoadingOverlay(page);
 
       // The save/book button should be disabled (no Google Calendar sync in QA)
-      // It's at the bottom of the form — scroll to it
+      // It's at the bottom of the form -- scroll to it
       await dialog.evaluate((el) => el.scrollTo(0, el.scrollHeight));
-      await page.waitForTimeout(300);
 
       const bookBtn = dialog
         .getByRole('button', { name: /book appointment|save|submit/i })
@@ -510,7 +500,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
       if (await bookBtn.isVisible({ timeout: 8_000 }).catch(() => false)) {
         const isDisabled = await bookBtn.isDisabled().catch(() => false);
         // In QA without Google Sync, button is expected to be disabled
-        // We assert it's visible regardless — the disabled state is a known QA constraint
+        // We assert it's visible regardless -- the disabled state is a known QA constraint
         await expect(bookBtn).toBeVisible({ timeout: 5_000 });
         console.log(`[book-appointment-ui] Book button disabled=${isDisabled} (expected true in QA without Google Sync)`);
       } else {
@@ -521,7 +511,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     },
   );
 
-  // ── 6. MARK AS BUSY / OTHER CALENDAR TABS ────────────────────────────────
+  // -- 6. MARK AS BUSY / OTHER CALENDAR TABS -----------------------------------
 
   test(
     'should show Mark as Busy tab in calendar event modal @smoke',
@@ -529,7 +519,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     async ({ page }) => {
       await page.goto('/app/calendar');
       await expect(page).toHaveURL(/\/app\/calendar/, { timeout: 15_000 });
-      await page.waitForTimeout(2_500);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       const newBtn = page
@@ -537,7 +527,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
         .first()
         .or(page.locator('button').filter({ hasText: /^New$/ }).first());
       await newBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 10_000 });
@@ -559,15 +549,15 @@ test.describe.serial('Book Appointment — UI Form', () => {
 
       if (hasBusy) {
         await busyTab.click({ force: true });
-        await page.waitForTimeout(400);
+        await waitForNetworkIdle(page);
         await expect(dialog).toBeVisible({ timeout: 5_000 });
       } else if (hasOutOff) {
         await outOfOfficeTab.click({ force: true });
-        await page.waitForTimeout(400);
+        await waitForNetworkIdle(page);
         await expect(dialog).toBeVisible({ timeout: 5_000 });
       } else if (hasAvail) {
         await availTab.click({ force: true });
-        await page.waitForTimeout(400);
+        await waitForNetworkIdle(page);
         await expect(dialog).toBeVisible({ timeout: 5_000 });
       } else {
         await expect(page.locator('body')).toBeVisible();
@@ -577,7 +567,7 @@ test.describe.serial('Book Appointment — UI Form', () => {
     },
   );
 
-  // ── 7. BOOK APPOINTMENT FROM CLIENT PROFILE (FULL FLOW) ──────────────────
+  // -- 7. BOOK APPOINTMENT FROM CLIENT PROFILE (FULL FLOW) ---------------------
 
   test(
     'should fill appointment form opened from client profile and verify disabled submit',
@@ -586,23 +576,22 @@ test.describe.serial('Book Appointment — UI Form', () => {
       test.setTimeout(120_000);
       await page.goto(`/app/client/${clientId}/records/visit-notes`);
       await expect(page).toHaveURL(new RegExp(`/app/client/${clientId}`), { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       const bookBtn = page.getByRole('button', { name: /book appointment/i }).first();
       await expect(bookBtn).toBeVisible({ timeout: 10_000 });
       await bookBtn.click({ force: true });
-      await page.waitForTimeout(1_000);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 10_000 });
       await disableLoadingOverlay(page);
 
-      // Fill title — placeholder: "Enter Title (External Calendar Title)"
+      // Fill title -- placeholder: "Enter Title (External Calendar Title)"
       const titleInput = dialog.locator('input[placeholder*="Title" i]').first();
       if (await titleInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await titleInput.fill('E2E Test Session');
-        await page.waitForTimeout(200);
       }
 
       // Select session type: VIRTUAL
@@ -611,12 +600,11 @@ test.describe.serial('Book Appointment — UI Form', () => {
         .first();
       if (await sessionInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await sessionInput.click({ force: true });
-        await page.waitForTimeout(400);
+        await waitForDropdownOptions(page);
         const virtualOpt = page.getByRole('option', { name: /virtual/i }).first();
         if (await virtualOpt.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await virtualOpt.click({ force: true });
           await page.keyboard.press('Tab');
-          await page.waitForTimeout(300);
         }
       }
 

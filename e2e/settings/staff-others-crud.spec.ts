@@ -1,5 +1,6 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { waitForPageReady, waitForDialogOpen, waitForAnimation } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Staff Others Sub-tab CRUD Tests (Therapist Portal)
@@ -23,7 +24,7 @@ async function goToOthers(page: Page): Promise<void> {
   await page.goto('/app/setting/staff-setting/others');
   await expect(page).toHaveURL(/staff-setting\/others/, { timeout: 15_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
@@ -111,7 +112,7 @@ test.describe.serial('Staff Others — CRUD', () => {
       }
 
       await inviteBtn.click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       if (await dialog.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -168,7 +169,7 @@ test.describe.serial('Staff Others — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const hasEdit     = await page.getByRole('menuitem', { name: /^edit$/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasDeactive = await page.getByRole('menuitem', { name: /deactivate|activate/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
@@ -201,7 +202,7 @@ test.describe.serial('Staff Others — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /^edit$/i }).first();
       if (!(await editItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -211,7 +212,7 @@ test.describe.serial('Staff Others — CRUD', () => {
       }
 
       await editItem.click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       if (await dialog.isVisible({ timeout: 8_000 }).catch(() => false)) {
@@ -250,7 +251,7 @@ test.describe.serial('Staff Others — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const hasDeactive = await page
         .getByRole('menuitem', { name: /deactivate|activate/i })
@@ -285,7 +286,7 @@ test.describe.serial('Staff Others — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /delete/i }).first();
       if (!(await deleteItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -295,7 +296,7 @@ test.describe.serial('Staff Others — CRUD', () => {
       }
 
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForAnimation(page.locator('[role="dialog"]').first());
 
       const confirmModal = page.locator('[role="dialog"]').first();
       if (await confirmModal.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -304,7 +305,7 @@ test.describe.serial('Staff Others — CRUD', () => {
           .last();
         if (await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await confirmBtn.click({ force: true });
-          await page.waitForTimeout(2_000);
+          await waitForPageReady(page);
         }
 
         // Graceful — API may block deletion of active staff

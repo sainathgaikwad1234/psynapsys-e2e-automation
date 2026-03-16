@@ -1,5 +1,12 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForDropdownOptions,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Family History CRU Tests (Therapist Portal)
@@ -29,14 +36,7 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
 
@@ -53,7 +53,7 @@ test.describe.serial('Client Family History — CRU', () => {
   async function goToFamily(page: Page): Promise<void> {
     await page.goto(`/app/client/${clientId}/biopsychosocial_history/family-history`);
     await expect(page).toHaveURL(/biopsychosocial_history\/family-history/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
   }
 
   // ── CREATE ──────────────────────────────────────────────────────────────────
@@ -66,7 +66,7 @@ test.describe.serial('Client Family History — CRU', () => {
       const addBtn = page.getByRole('button', { name: /^add$/i }).first();
       await expect(addBtn).toBeVisible({ timeout: 10_000 });
       await addBtn.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -83,7 +83,7 @@ test.describe.serial('Client Family History — CRU', () => {
       await goToFamily(page);
 
       await page.getByRole('button', { name: /^add$/i }).first().click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -98,25 +98,22 @@ test.describe.serial('Client Family History — CRU', () => {
       const relInput = dialog.getByRole('textbox', { name: /relative/i }).first()
         .or(dialog.getByPlaceholder(/select relative/i).first());
       await relInput.first().click({ force: true });
-      await page.waitForTimeout(600);
+      await waitForDropdownOptions(page).catch(() => {});
       const relOpt = page.getByRole('option').first();
       if (await relOpt.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await relOpt.click({ force: true });
-        await page.waitForTimeout(300);
       }
 
       // Still Living (optional Select) — use Tab to close prev dropdown first
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(200);
       const aliveInput = dialog.getByLabel(/still living/i).first()
         .or(dialog.getByPlaceholder(/still living|alive/i).first());
       if (await aliveInput.first().isVisible({ timeout: 2_000 }).catch(() => false)) {
         await aliveInput.first().click({ force: true });
-        await page.waitForTimeout(400);
+        await waitForDropdownOptions(page).catch(() => {});
         const aliveOpt = page.getByRole('option').first();
         if (await aliveOpt.isVisible({ timeout: 2_000 }).catch(() => false)) {
           await aliveOpt.click({ force: true });
-          await page.waitForTimeout(300);
         }
       }
 
@@ -126,7 +123,6 @@ test.describe.serial('Client Family History — CRU', () => {
         .first();
       if (await firstCheckbox.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await firstCheckbox.check({ force: true });
-        await page.waitForTimeout(200);
       }
 
       // Notes (optional textarea)
@@ -139,7 +135,7 @@ test.describe.serial('Client Family History — CRU', () => {
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
     },
@@ -167,7 +163,7 @@ test.describe.serial('Client Family History — CRU', () => {
       // Edit icon (img) is rendered by React only during row hover.
       const row = page.locator('tr').filter({ hasText: MEMBER_NAME }).first();
       await row.hover();
-      await page.waitForTimeout(600);
+      await page.waitForTimeout(600); // TODO: replace with specific wait helper — intentional hover-reveal timing
 
       const clickPos = await page.evaluate((name: string) => {
         const rows = Array.from(document.querySelectorAll('tbody tr'));
@@ -189,12 +185,12 @@ test.describe.serial('Client Family History — CRU', () => {
 
       if (clickPos) {
         await page.mouse.move(clickPos.x, clickPos.y);
-        await page.waitForTimeout(200);
+        await page.waitForTimeout(200); // TODO: replace with specific wait helper — mouse tracking guard
         await page.mouse.click(clickPos.x, clickPos.y);
       } else {
         await row.click({ force: true });
       }
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -207,7 +203,7 @@ test.describe.serial('Client Family History — CRU', () => {
 
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
       await expect(page.getByText(MEMBER_UPDATED)).toBeVisible({ timeout: 10_000 });

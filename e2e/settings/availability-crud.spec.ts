@@ -1,5 +1,7 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import { waitForPageReady, waitForDialogOpen, waitForDialogClose, waitForAnimation } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Availability / Schedule Settings CRU Tests (Therapist Portal)
@@ -14,15 +16,7 @@ import { type Page } from '@playwright/test';
  */
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
 
@@ -32,7 +26,7 @@ test.describe.serial('Availability Settings — CRU', () => {
     await page.goto('/app/setting/availability');
     await expect(page).toHaveURL(/availability/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -102,7 +96,7 @@ test.describe.serial('Availability Settings — CRU', () => {
       }
 
       await addBtn.first().click({ force: true });
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page).catch(() => {});
 
       const dialog = page.locator('[role="dialog"]').first();
       const isDialog = await dialog.isVisible({ timeout: 3_000 }).catch(() => false);
@@ -127,14 +121,13 @@ test.describe.serial('Availability Settings — CRU', () => {
       const cbCount = await checkboxes.count().catch(() => 0);
       if (cbCount > 0) {
         await checkboxes.first().click({ force: true }).catch(() => {});
-        await page.waitForTimeout(400);
       }
 
       // Look for a Save button
       const saveBtn = page.getByRole('button', { name: /^save$|^update$/i }).last();
       if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await saveBtn.click({ force: true });
-        await page.waitForTimeout(3_000);
+        await waitForPageReady(page);
       }
 
       await expect(page.locator('body')).toBeVisible();
@@ -159,7 +152,7 @@ test.describe.serial('Availability Settings — CRU', () => {
       }
 
       await addBtn.click({ force: true });
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page).catch(() => {});
 
       const dialog = page.locator('[role="dialog"]').first();
       if (!(await dialog.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -176,13 +169,12 @@ test.describe.serial('Availability Settings — CRU', () => {
         .or(dialog.getByLabel(/day/i).first());
       if (await dayInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await dayInput.first().click({ force: true });
-        await page.waitForTimeout(400);
+        await waitForAnimation(page.locator('[role="option"]').first());
         const dayOpt = page.getByRole('option').first();
         if (await dayOpt.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await dayOpt.click({ force: true });
         }
         await page.keyboard.press('Tab');
-        await page.waitForTimeout(300);
       }
 
       // Start time
@@ -193,7 +185,6 @@ test.describe.serial('Availability Settings — CRU', () => {
       if (await startInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await startInput.first().click({ force: true });
         await startInput.first().fill('09:00');
-        await page.waitForTimeout(200);
       }
 
       // End time
@@ -204,14 +195,13 @@ test.describe.serial('Availability Settings — CRU', () => {
       if (await endInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await endInput.first().click({ force: true });
         await endInput.first().fill('17:00');
-        await page.waitForTimeout(200);
       }
 
       await disableLoadingOverlay(page);
       const saveBtn = dialog.getByRole('button', { name: /^save$|^add$/i }).last();
       if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await saveBtn.click({ force: true });
-        await page.waitForTimeout(3_000);
+        await waitForPageReady(page);
       }
 
       const dialogHidden = await dialog.isHidden({ timeout: 5_000 }).catch(() => false);

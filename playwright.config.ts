@@ -42,7 +42,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
 
   // Parallelism: use available CPU cores on CI
-  workers: process.env.CI ? '50%' : undefined,
+  workers: process.env.CI ? '50%' : 4,
 
   // Reporters: HTML for local, JUnit + HTML for CI
   reporter: process.env.CI

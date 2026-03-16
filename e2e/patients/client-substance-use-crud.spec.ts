@@ -1,5 +1,11 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Substance Use History CRU Tests (Therapist Portal)
@@ -24,14 +30,7 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 const TS = Date.now();
 const NOTES_TEXT = `E2E substance use note ${TS.toString().slice(-6)}`;
@@ -53,7 +52,7 @@ test.describe.serial('Client Substance Use History — CRU', () => {
     await page.goto(`/app/client/${clientId}/biopsychosocial_history/substance-use-history`);
     await expect(page).toHaveURL(/biopsychosocial_history\/substance-use-history/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -100,7 +99,7 @@ test.describe.serial('Client Substance Use History — CRU', () => {
       }
 
       await editBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       // Form or dialog should now be visible
       const dialog = page.locator('[role="dialog"]').first();
@@ -138,7 +137,7 @@ test.describe.serial('Client Substance Use History — CRU', () => {
 
       if (await editBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await editBtn.click({ force: true });
-        await page.waitForTimeout(800);
+        await waitForDialogOpen(page);
         await disableLoadingOverlay(page);
       }
 
@@ -149,7 +148,6 @@ test.describe.serial('Client Substance Use History — CRU', () => {
         // Toggle first checkbox
         const firstCb = checkboxes.first();
         await firstCb.click({ force: true }).catch(() => {});
-        await page.waitForTimeout(300);
       }
 
       // Notes/Comments textarea (if visible)
@@ -160,7 +158,6 @@ test.describe.serial('Client Substance Use History — CRU', () => {
       if (await notesField.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await notesField.first().click({ force: true });
         await notesField.first().fill(NOTES_TEXT);
-        await page.waitForTimeout(200);
       }
 
       // Save — look in dialog first, then page-level
@@ -178,7 +175,11 @@ test.describe.serial('Client Substance Use History — CRU', () => {
       }
 
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(3_000);
+      if (isDialog) {
+        await waitForDialogClose(page);
+      } else {
+        await waitForPageReady(page);
+      }
       await expect(page.locator('body')).toBeVisible();
     },
   );
@@ -204,7 +205,7 @@ test.describe.serial('Client Substance Use History — CRU', () => {
 
       if (await editBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await editBtn.click({ force: true });
-        await page.waitForTimeout(800);
+        await waitForDialogOpen(page);
         await disableLoadingOverlay(page);
       }
 
@@ -216,7 +217,6 @@ test.describe.serial('Client Substance Use History — CRU', () => {
       if (await notesField.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await notesField.first().click({ force: true });
         await notesField.first().fill(UPDATED_NOTES);
-        await page.waitForTimeout(200);
       }
 
       const dialog = page.locator('[role="dialog"]').first();
@@ -229,7 +229,11 @@ test.describe.serial('Client Substance Use History — CRU', () => {
 
       if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await saveBtn.click({ force: true });
-        await page.waitForTimeout(3_000);
+        if (isDialog) {
+          await waitForDialogClose(page);
+        } else {
+          await waitForPageReady(page);
+        }
       }
 
       await expect(page.locator('body')).toBeVisible();

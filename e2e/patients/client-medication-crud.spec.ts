@@ -1,5 +1,12 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForAnimation,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Medication History CRUD Tests (Therapist Portal)
@@ -29,15 +36,7 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-/** Disable Mantine LoadingOverlay so form fields are clickable */
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
 
@@ -56,7 +55,7 @@ test.describe.serial('Client Medication History — CRUD', () => {
     await page.goto(`/app/client/${clientId}/biopsychosocial_history/medication-history`);
     await expect(page).toHaveURL(/biopsychosocial_history\/medication-history/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── CREATE ──────────────────────────────────────────────────────────────────
@@ -74,7 +73,7 @@ test.describe.serial('Client Medication History — CRUD', () => {
     } else {
       await allAdd.first().click({ force: true });
     }
-    await page.waitForTimeout(400);
+    await waitForAnimation(page.locator('[role="dialog"]').first());
   }
 
   test(
@@ -83,7 +82,7 @@ test.describe.serial('Client Medication History — CRUD', () => {
     async ({ page }) => {
       await goToMedication(page);
       await clickMedicationAdd(page);
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -101,12 +100,11 @@ test.describe.serial('Client Medication History — CRUD', () => {
       await goToMedication(page);
 
       await clickMedicationAdd(page);
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
       await disableLoadingOverlay(page);
-      await page.waitForTimeout(500);
 
       // Medicine Name (required) — click first to ensure focus, then fill
       const nameInput = dialog
@@ -114,9 +112,7 @@ test.describe.serial('Client Medication History — CRUD', () => {
         .first()
         .or(dialog.getByPlaceholder(/medicine name|medication name/i).first());
       await nameInput.first().click({ force: true });
-      await page.waitForTimeout(200);
       await nameInput.first().fill(MED_NAME);
-      await page.waitForTimeout(200);
 
       // Note (textarea — optional)
       const noteInput = dialog.locator('textarea').first()
@@ -129,7 +125,7 @@ test.describe.serial('Client Medication History — CRUD', () => {
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       // Modal should close
       await expect(dialog).toBeHidden({ timeout: 10_000 });
@@ -160,7 +156,7 @@ test.describe.serial('Client Medication History — CRUD', () => {
       // Action icon is an <img> in the last cell — hover row then click via coordinates
       const row = page.locator('tr, [role="row"]').filter({ hasText: MED_NAME }).first();
       await row.hover();
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(400); // TODO: replace with specific wait helper — intentional hover-reveal timing
       const clickPos = await page.evaluate((name: string) => {
         const rows = Array.from(document.querySelectorAll('tbody tr'));
         const target = rows.find((r) => r.textContent?.includes(name));
@@ -180,12 +176,12 @@ test.describe.serial('Client Medication History — CRUD', () => {
       }, MED_NAME);
       if (clickPos) {
         await page.mouse.move(clickPos.x, clickPos.y);
-        await page.waitForTimeout(200);
+        await page.waitForTimeout(200); // TODO: replace with specific wait helper — mouse tracking guard
         await page.mouse.click(clickPos.x, clickPos.y);
       } else {
         await row.click({ force: true });
       }
-      await page.waitForTimeout(400);
+      await waitForDialogOpen(page);
 
       // Clicking the img opens the Edit Medication dialog directly
       const dialog = page.locator('[role="dialog"]').first();
@@ -214,7 +210,7 @@ test.describe.serial('Client Medication History — CRUD', () => {
         .last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
       await expect(page.getByText(MED_UPDATED)).toBeVisible({ timeout: 10_000 });
@@ -238,7 +234,7 @@ test.describe.serial('Client Medication History — CRUD', () => {
 
       const row = page.locator('tr, [role="row"]').filter({ hasText: targetName }).first();
       await row.hover();
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(400); // TODO: replace with specific wait helper — intentional hover-reveal timing
       const delClickPos = await page.evaluate((name: string) => {
         const rows = Array.from(document.querySelectorAll('tbody tr'));
         const target = rows.find((r) => r.textContent?.includes(name));
@@ -258,12 +254,12 @@ test.describe.serial('Client Medication History — CRUD', () => {
       }, targetName);
       if (delClickPos) {
         await page.mouse.move(delClickPos.x, delClickPos.y);
-        await page.waitForTimeout(200);
+        await page.waitForTimeout(200); // TODO: replace with specific wait helper — mouse tracking guard
         await page.mouse.click(delClickPos.x, delClickPos.y);
       } else {
         await row.click({ force: true });
       }
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /^delete$/i }).first();
       if (!(await deleteItem.isVisible({ timeout: 3_000 }).catch(() => false))) {
@@ -273,7 +269,7 @@ test.describe.serial('Client Medication History — CRUD', () => {
         return;
       }
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForAnimation(page.locator('[role="dialog"]').first());
 
       // Confirm deletion
       const confirmDialog = page.locator('[role="dialog"]').first();
@@ -282,7 +278,7 @@ test.describe.serial('Client Medication History — CRUD', () => {
           .getByRole('button', { name: /^delete$|confirm/i })
           .last();
         await confirmBtn.click({ force: true });
-        await page.waitForTimeout(1_500);
+        await waitForDialogClose(page);
       }
 
       await expect(page.getByText(targetName)).not.toBeVisible({ timeout: 10_000 });

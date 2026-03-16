@@ -1,9 +1,11 @@
 import { test, expect } from '../../support/merged-fixtures';
+import { type Page } from '@playwright/test';
+import { waitForPageReady, waitForDropdownOptions, waitForNetworkIdle } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Appointments CRUD E2E Tests (Therapist Portal)
  *
- * Full Create → Read → Update → Delete cycle for the Appointments module.
+ * Full Create -> Read -> Update -> Delete cycle for the Appointments module.
  *
  * Architecture note:
  *   The "Book Appointment" and "Save" submit buttons are disabled when the
@@ -12,10 +14,10 @@ import { test, expect } from '../../support/merged-fixtures';
  *   REST API (authRequest fixture), and UI steps verify the calendar reflects the changes.
  *
  * Flow:
- *   1. Create  — POST /api/appointments/ via authRequest
- *   2. Read    — Navigate to /app/calendar (Week view) and verify the appointment title
- *   3. Update  — PATCH /api/appointments/{id}/ via authRequest, re-verify on calendar
- *   4. Delete  — DELETE /api/appointments/{id}/ via authRequest, verify not visible
+ *   1. Create  -- POST /api/appointments/ via authRequest
+ *   2. Read    -- Navigate to /app/calendar (Week view) and verify the appointment title
+ *   3. Update  -- PATCH /api/appointments/{id}/ via authRequest, re-verify on calendar
+ *   4. Delete  -- DELETE /api/appointments/{id}/ via authRequest, verify not visible
  *
  * Required API pre-data (fetched from live QA environment):
  *   - First available patient  (GET /api/patients/?page_size=1)
@@ -25,7 +27,7 @@ import { test, expect } from '../../support/merged-fixtures';
  * @tag @regression @appointments @crud
  */
 
-// ── Shared state across serial tests ─────────────────────────────────────────
+// -- Shared state across serial tests ------------------------------------------
 
 const TS             = Date.now();
 const APPT_TITLE     = `E2E Appt ${TS.toString().slice(-6)}`;
@@ -45,35 +47,35 @@ const API_URL = process.env.API_URL || 'https://qa.api.psynap-sys.com/api';
 /** Headers matching the app's Axios interceptor (Tenant-Name from subdomain) */
 const TENANT_HEADER = { 'Tenant-Name': 'test' };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- Helpers -------------------------------------------------------------------
 
 /**
  * Navigate to /app/calendar in Week view around tomorrow's date.
  * Returns after confirming the calendar is rendered.
  */
-async function openCalendarWeekView(page: any) {
+async function openCalendarWeekView(page: Page) {
   await page.goto('/app/calendar');
   await expect(page).toHaveURL(/\/app\/calendar/, { timeout: 15_000 });
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 
-  // Switch to Week view — the view dropdown is the last Mantine Select textbox in the toolbar
+  // Switch to Week view -- the view dropdown is the last Mantine Select textbox in the toolbar
   const viewDropdown = page.getByRole('textbox').last();
   if (await viewDropdown.isVisible({ timeout: 5_000 }).catch(() => false)) {
     await viewDropdown.click();
-    await page.waitForTimeout(500);
+    await waitForDropdownOptions(page);
     const weekOption = page.getByRole('option', { name: /^Week$/i }).first();
     if (await weekOption.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await weekOption.click();
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
     }
   }
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+// -- Tests ---------------------------------------------------------------------
 
 test.describe.serial('Appointments — Create / Read / Update / Delete', () => {
 
-  // ── CREATE ────────────────────────────────────────────────────────────────
+  // -- CREATE ------------------------------------------------------------------
 
   test(
     'should create an appointment via the API @smoke',
@@ -143,7 +145,7 @@ test.describe.serial('Appointments — Create / Read / Update / Delete', () => {
     },
   );
 
-  // ── READ ──────────────────────────────────────────────────────────────────
+  // -- READ --------------------------------------------------------------------
 
   test(
     'should find the created appointment on the calendar (Week view)',
@@ -157,7 +159,7 @@ test.describe.serial('Appointments — Create / Read / Update / Delete', () => {
       const tomorrowDay = tomorrow.getDate();
       const tomorrowLabel = String(tomorrowDay);
 
-      // Try to find the appointment title directly — Week view renders event titles as text
+      // Try to find the appointment title directly -- Week view renders event titles as text
       const apptEvent = page
         .getByText(APPT_TITLE)
         .first()
@@ -176,7 +178,7 @@ test.describe.serial('Appointments — Create / Read / Update / Delete', () => {
         );
         if (todayIdx >= 0) {
           await allBtns.nth(todayIdx + 1).click({ force: true });
-          await page.waitForTimeout(1_500);
+          await waitForNetworkIdle(page);
         }
       }
 
@@ -205,7 +207,7 @@ test.describe.serial('Appointments — Create / Read / Update / Delete', () => {
     },
   );
 
-  // ── UPDATE ────────────────────────────────────────────────────────────────
+  // -- UPDATE ------------------------------------------------------------------
 
   test(
     'should update the appointment title via the API',
@@ -248,7 +250,7 @@ test.describe.serial('Appointments — Create / Read / Update / Delete', () => {
         );
         if (todayIdx >= 0) {
           await allBtns.nth(todayIdx + 1).click({ force: true });
-          await page.waitForTimeout(1_500);
+          await waitForNetworkIdle(page);
         }
       }
 
@@ -259,7 +261,7 @@ test.describe.serial('Appointments — Create / Read / Update / Delete', () => {
     },
   );
 
-  // ── DELETE ────────────────────────────────────────────────────────────────
+  // -- DELETE ------------------------------------------------------------------
 
   test(
     'should delete the appointment via the API',
@@ -298,7 +300,7 @@ test.describe.serial('Appointments — Create / Read / Update / Delete', () => {
         );
         if (todayIdx >= 0) {
           await allBtns.nth(todayIdx + 1).click({ force: true });
-          await page.waitForTimeout(1_500);
+          await waitForNetworkIdle(page);
         }
       }
 

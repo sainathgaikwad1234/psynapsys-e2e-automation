@@ -1,5 +1,13 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForAnimation,
+  waitForDropdownOptions,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Visit / Session Notes CRUD Tests (Therapist Portal)
@@ -11,6 +19,7 @@ import { type Page } from '@playwright/test';
  */
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+// disableLoadingOverlay is imported from mantine-helpers
 
 async function resolveClientId(page: Page): Promise<string> {
   await page.goto('/app/client');
@@ -18,15 +27,6 @@ async function resolveClientId(page: Page): Promise<string> {
   const firstIdCell = page.locator('table tbody tr').first().locator('td').first();
   await expect(firstIdCell).toHaveText(/^\d+$/, { timeout: 20_000 });
   return (await firstIdCell.innerText()).trim();
-}
-
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
 }
 
 const TS = Date.now();
@@ -49,7 +49,7 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
     await page.goto(`/app/client/${clientId}/records/visit-notes`);
     await expect(page).toHaveURL(/records\/visit-notes/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
         return;
       }
       await addBtn.click({ force: true });
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       const isDialog = await dialog.isVisible({ timeout: 5_000 }).catch(() => false);
@@ -126,7 +126,7 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
         return;
       }
       await addBtn.click({ force: true });
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       const isDialog = await dialog.isVisible({ timeout: 5_000 }).catch(() => false);
@@ -142,7 +142,6 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
       if (await titleInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await titleInput.first().click({ force: true });
         await titleInput.first().fill(NOTE_TEXT.slice(0, 40));
-        await page.waitForTimeout(200);
       }
 
       // Note body / content
@@ -153,7 +152,6 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
       if (await bodyInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await bodyInput.first().click({ force: true });
         await bodyInput.first().fill(NOTE_TEXT);
-        await page.waitForTimeout(200);
       }
 
       // Note type / category
@@ -162,13 +160,12 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
         .first();
       if (await typeInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await typeInput.click({ force: true });
-        await page.waitForTimeout(400);
+        await waitForDropdownOptions(page).catch(() => {});
         const opt = page.getByRole('option').first();
         if (await opt.isVisible({ timeout: 2_000 }).catch(() => false)) {
           await opt.click({ force: true });
         }
         await page.keyboard.press('Tab');
-        await page.waitForTimeout(300);
       }
 
       const saveBtn = formScope.getByRole('button', { name: /^save$|^create$|^submit$/i }).last();
@@ -179,9 +176,8 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
 
       await disableLoadingOverlay(page);
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(3_000);
-
       if (isDialog) {
+        await waitForDialogClose(page);
         const dialogHidden = await dialog.isHidden({ timeout: 8_000 }).catch(() => false);
         if (!dialogHidden) {
           const cancelBtn = dialog.getByRole('button', { name: /cancel/i }).first();
@@ -189,6 +185,8 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
             await cancelBtn.click({ force: true });
           }
         }
+      } else {
+        await waitForPageReady(page);
       }
       await expect(page.locator('body')).toBeVisible();
     },
@@ -217,7 +215,7 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
         return;
       }
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /edit/i }).first();
       if (!(await editItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -225,37 +223,38 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
         return;
       }
       await editItem.click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       const isDialog = await dialog.isVisible({ timeout: 5_000 }).catch(() => false);
       const formScope = isDialog ? dialog : page;
 
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       const bodyInput = formScope.locator('textarea').first();
       if (await bodyInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await bodyInput.click({ force: true });
         await bodyInput.fill(UPDATED_NOTE);
-        await page.waitForTimeout(200);
       }
 
       const saveBtn = formScope.getByRole('button', { name: /^save$|^update$/i }).last();
       if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await saveBtn.click({ force: true });
-        await page.waitForTimeout(2_000);
-      }
-
-      if (isDialog) {
-        const dialogHidden = await dialog.isHidden({ timeout: 5_000 }).catch(() => false);
-        if (!dialogHidden) {
-          const cancelBtn = dialog.getByRole('button', { name: /cancel/i }).first();
-          if (await cancelBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
-            await cancelBtn.click({ force: true });
+        if (isDialog) {
+          await waitForDialogClose(page);
+          const dialogHidden = await dialog.isHidden({ timeout: 5_000 }).catch(() => false);
+          if (!dialogHidden) {
+            const cancelBtn = dialog.getByRole('button', { name: /cancel/i }).first();
+            if (await cancelBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
+              await cancelBtn.click({ force: true });
+            }
           }
+        } else {
+          await waitForPageReady(page);
         }
       }
+
       await expect(page.locator('body')).toBeVisible();
     },
   );
@@ -286,7 +285,7 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
       const firstRowText = await firstRow.innerText().catch(() => '');
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /delete/i }).first();
       if (!(await deleteItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -294,7 +293,7 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
         return;
       }
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const confirmModal = page.locator('[role="dialog"]').first();
       await expect(confirmModal).toBeVisible({ timeout: 8_000 });
@@ -308,7 +307,7 @@ test.describe.serial('Client Visit Notes — CRUD', () => {
         .waitFor({ state: 'hidden', timeout: 8_000 })
         .then(() => true)
         .catch(() => false);
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       const rowCountAfter = await page.locator('table tbody tr').count().catch(() => 0);
       const successNotif = await page

@@ -1,5 +1,11 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Other History (Psychosocial) CRU Tests (Therapist Portal)
@@ -31,14 +37,7 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 const TS = Date.now();
 const NOTES = `E2E other history ${TS.toString().slice(-6)}`;
@@ -62,7 +61,6 @@ async function editSection(
   const sectionEl = page.getByText(sectionKeyword).first();
   if (await sectionEl.isVisible({ timeout: 5_000 }).catch(() => false)) {
     await sectionEl.scrollIntoViewIfNeeded().catch(() => {});
-    await page.waitForTimeout(300);
   }
 
   // Open edit form if a pencil/edit button is present
@@ -75,7 +73,7 @@ async function editSection(
 
   if (await editBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
     await editBtn.click({ force: true });
-    await page.waitForTimeout(800);
+    await waitForDialogOpen(page);
     await disableLoadingOverlay(page);
   }
 
@@ -97,11 +95,9 @@ async function editSection(
   if (await textarea.isVisible({ timeout: 2_000 }).catch(() => false)) {
     await textarea.click({ force: true });
     await textarea.fill(notes);
-    await page.waitForTimeout(200);
   } else if (await textInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
     await textInput.click({ force: true });
     await textInput.fill(notes);
-    await page.waitForTimeout(200);
   }
 
   // Click checkboxes/radios if visible in section
@@ -113,7 +109,6 @@ async function editSection(
   const cbCount = await checkboxes.count().catch(() => 0);
   if (cbCount > 0) {
     await checkboxes.first().click({ force: true }).catch(() => {});
-    await page.waitForTimeout(200);
   }
 
   // Look for a Save button in dialog scope, then page scope
@@ -124,10 +119,9 @@ async function editSection(
 
   if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
     await saveBtn.click({ force: true });
-    await page.waitForTimeout(2_000);
-
-    // If dialog is still open (backend error), cancel gracefully
     if (isDialog) {
+      await waitForDialogClose(page);
+      // If dialog is still open (backend error), cancel gracefully
       const stillOpen = await dialog.isVisible({ timeout: 2_000 }).catch(() => false);
       if (stillOpen) {
         const cancelBtn = dialog.getByRole('button', { name: /cancel/i }).first();
@@ -135,6 +129,8 @@ async function editSection(
           await cancelBtn.click({ force: true });
         }
       }
+    } else {
+      await waitForPageReady(page);
     }
   }
 }
@@ -155,7 +151,7 @@ test.describe.serial('Client Other History (Psychosocial) — CRU', () => {
     await page.goto(`/app/client/${clientId}/biopsychosocial_history/other-history`);
     await expect(page).toHaveURL(/biopsychosocial_history\/other-history/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────

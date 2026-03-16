@@ -1,5 +1,12 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogClose,
+  waitForDialogOpen,
+  waitForAnimation,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Medical Conditions CRE Tests (Therapist Portal)
@@ -15,6 +22,7 @@ import { type Page } from '@playwright/test';
  */
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+// disableLoadingOverlay is imported from mantine-helpers
 
 async function resolveClientId(page: Page): Promise<string> {
   await page.goto('/app/client');
@@ -22,15 +30,6 @@ async function resolveClientId(page: Page): Promise<string> {
   const firstIdCell = page.locator('table tbody tr').first().locator('td').first();
   await expect(firstIdCell).toHaveText(/^\d+$/, { timeout: 20_000 });
   return (await firstIdCell.innerText()).trim();
-}
-
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
@@ -52,7 +51,7 @@ test.describe.serial('Client Medical Conditions — CRE', () => {
       await page.goto(`/app/client/${clientId}/biopsychosocial`);
     }
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -110,7 +109,7 @@ test.describe.serial('Client Medical Conditions — CRE', () => {
       }
 
       await editBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page).catch(() => {}); // edit form open guard
 
       // After clicking edit, checkboxes or a dialog should appear
       const dialog = page.locator('[role="dialog"]').first();
@@ -143,7 +142,7 @@ test.describe.serial('Client Medical Conditions — CRE', () => {
 
       if (await editBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await editBtn.click({ force: true });
-        await page.waitForTimeout(800);
+        await waitForDialogOpen(page).catch(() => {}); // edit form open guard
         await disableLoadingOverlay(page);
       }
 
@@ -152,7 +151,7 @@ test.describe.serial('Client Medical Conditions — CRE', () => {
       const count = await checkboxes.count().catch(() => 0);
       if (count > 0) {
         await checkboxes.first().click({ force: true }).catch(() => {});
-        await page.waitForTimeout(400);
+        await waitForAnimation(page.locator('body')); // checkbox state guard
       }
 
       // Save
@@ -163,7 +162,11 @@ test.describe.serial('Client Medical Conditions — CRE', () => {
 
       if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await saveBtn.click({ force: true });
-        await page.waitForTimeout(3_000);
+        if (isDialog) {
+          await waitForDialogClose(page);
+        } else {
+          await waitForPageReady(page);
+        }
       }
 
       await expect(page.locator('body')).toBeVisible();
@@ -189,7 +192,7 @@ test.describe.serial('Client Medical Conditions — CRE', () => {
 
       if (await editBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await editBtn.click({ force: true });
-        await page.waitForTimeout(800);
+        await waitForDialogOpen(page).catch(() => {}); // edit form open guard
         await disableLoadingOverlay(page);
       }
 
@@ -198,10 +201,10 @@ test.describe.serial('Client Medical Conditions — CRE', () => {
       const count = await checkboxes.count().catch(() => 0);
       if (count > 1) {
         await checkboxes.nth(1).click({ force: true }).catch(() => {});
-        await page.waitForTimeout(400);
+        await waitForAnimation(page.locator('body')); // checkbox state guard
       } else if (count === 1) {
         await checkboxes.first().click({ force: true }).catch(() => {});
-        await page.waitForTimeout(400);
+        await waitForAnimation(page.locator('body')); // checkbox state guard
       }
 
       const dialog = page.locator('[role="dialog"]').first();
@@ -211,7 +214,11 @@ test.describe.serial('Client Medical Conditions — CRE', () => {
 
       if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await saveBtn.click({ force: true });
-        await page.waitForTimeout(3_000);
+        if (isDialog) {
+          await waitForDialogClose(page);
+        } else {
+          await waitForPageReady(page);
+        }
       }
 
       await expect(page.locator('body')).toBeVisible();

@@ -1,12 +1,13 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { waitForPageReady, waitForDialogOpen, waitForDialogClose, waitForDropdownOptions, waitForNetworkIdle } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Intake Form Assignment & Submission Tests (Therapist Portal)
  *
  * Covers:
  *   - Assign a custom/intake form to a specific client
- *       (from /app/setting/custom-forms → Assign Form action)
+ *       (from /app/setting/custom-forms -> Assign Form action)
  *   - View assigned forms list under a client
  *       (/app/client/$id/forms/intake)
  *   - Send form link to client (email/portal)
@@ -16,13 +17,12 @@ import { type Page } from '@playwright/test';
  * @tag @regression @intake-forms @form-assign
  */
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- Helpers -------------------------------------------------------------------
 
 async function resolveClientId(page: Page): Promise<string> {
   await page.goto('/app/client');
   await expect(page).toHaveURL(/\/app\/client/, { timeout: 15_000 });
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
   const firstIdCell = page.locator('table tbody tr').first().locator('td').first();
   await expect(firstIdCell).toHaveText(/^\d+$/, { timeout: 20_000 });
   return firstIdCell.innerText();
@@ -31,11 +31,10 @@ async function resolveClientId(page: Page): Promise<string> {
 async function goToClientForms(page: Page, clientId: string): Promise<void> {
   await page.goto(`/app/client/${clientId}/forms/intake`);
   await expect(page).toHaveURL(/forms\/intake/, { timeout: 15_000 });
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 }
 
-// ── Suite ─────────────────────────────────────────────────────────────────────
+// -- Suite ---------------------------------------------------------------------
 
 test.describe.serial('Intake Form Assignment — CRUD', () => {
 
@@ -48,7 +47,7 @@ test.describe.serial('Intake Form Assignment — CRUD', () => {
     await ctx.close();
   });
 
-  // ── VIEW ASSIGNED FORMS ───────────────────────────────────────────────────
+  // -- VIEW ASSIGNED FORMS -----------------------------------------------------
 
   test(
     'should display the Client Intake Forms tab @smoke',
@@ -93,7 +92,7 @@ test.describe.serial('Intake Form Assignment — CRUD', () => {
     },
   );
 
-  // ── ASSIGN FORM FROM CUSTOM FORMS PAGE ────────────────────────────────────
+  // -- ASSIGN FORM FROM CUSTOM FORMS PAGE --------------------------------------
 
   test(
     'should open Assign Form modal from Custom Forms settings @smoke',
@@ -101,8 +100,7 @@ test.describe.serial('Intake Form Assignment — CRUD', () => {
     async ({ page }) => {
       await page.goto('/app/setting/custom-forms');
       await expect(page).toHaveURL(/custom-forms/, { timeout: 15_000 });
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       const firstRow = page.locator('table tbody tr').first();
       if (!(await firstRow.isVisible({ timeout: 8_000 }).catch(() => false))) {
@@ -117,7 +115,7 @@ test.describe.serial('Intake Form Assignment — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const assignItem = page.getByRole('menuitem', { name: /assign/i }).first();
       if (!(await assignItem.isVisible({ timeout: 3_000 }).catch(() => false))) {
@@ -127,7 +125,7 @@ test.describe.serial('Intake Form Assignment — CRUD', () => {
       }
 
       await assignItem.click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       if (await dialog.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -157,7 +155,7 @@ test.describe.serial('Intake Form Assignment — CRUD', () => {
     },
   );
 
-  // ── FORM ACTION MENU (from client forms tab) ──────────────────────────────
+  // -- FORM ACTION MENU (from client forms tab) --------------------------------
 
   test(
     'should show action menu for assigned form if available @smoke',
@@ -178,7 +176,7 @@ test.describe.serial('Intake Form Assignment — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const hasView     = await page.getByRole('menuitem', { name: /view/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasSend     = await page.getByRole('menuitem', { name: /send|resend/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
@@ -209,7 +207,7 @@ test.describe.serial('Intake Form Assignment — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const viewItem = page.getByRole('menuitem', { name: /^view$/i }).first();
       if (!(await viewItem.isVisible({ timeout: 3_000 }).catch(() => false))) {
@@ -219,7 +217,7 @@ test.describe.serial('Intake Form Assignment — CRUD', () => {
       }
 
       await viewItem.click();
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       const isDialog = await dialog.isVisible({ timeout: 5_000 }).catch(() => false);
@@ -257,7 +255,7 @@ test.describe.serial('Intake Form Assignment — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const hasSend = await page
         .getByRole('menuitem', { name: /send|resend/i })
@@ -273,7 +271,7 @@ test.describe.serial('Intake Form Assignment — CRUD', () => {
     },
   );
 
-  // ── FORM STATUS BADGES ────────────────────────────────────────────────────
+  // -- FORM STATUS BADGES ------------------------------------------------------
 
   test(
     'should display form status badges in assigned forms list @smoke',

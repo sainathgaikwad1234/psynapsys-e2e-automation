@@ -1,5 +1,7 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import { waitForPageReady, waitForAnimation } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Custom Forms Builder CRUD Tests (Therapist Portal)
@@ -20,15 +22,7 @@ import { type Page } from '@playwright/test';
  */
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 const FORM_TITLE = `E2E Custom Form ${Date.now().toString().slice(-6)}`;
 
@@ -40,7 +34,7 @@ test.describe.serial('Custom Forms — CRUD', () => {
     await page.goto('/app/setting/custom-forms');
     await expect(page).toHaveURL(/custom-forms/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -113,7 +107,7 @@ test.describe.serial('Custom Forms — CRUD', () => {
       }
 
       await addBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Should navigate to /app/setting/custom-form/add (FormBuilder page)
       const isOnAddPage = await page.url().includes('custom-form');
@@ -148,7 +142,7 @@ test.describe.serial('Custom Forms — CRUD', () => {
       test.setTimeout(90_000);
       await page.goto('/app/setting/custom-form/add');
       await expect(page).toHaveURL(/custom-form\/add/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       // Form builder page — look for form title field
@@ -160,7 +154,6 @@ test.describe.serial('Custom Forms — CRUD', () => {
       if (await titleInput.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await titleInput.first().click({ force: true });
         await titleInput.first().fill(FORM_TITLE);
-        await page.waitForTimeout(300);
         await expect(page.locator('body')).toBeVisible();
       } else {
         // FormBuilder may have a different layout
@@ -190,7 +183,7 @@ test.describe.serial('Custom Forms — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /^edit$/i }).first();
       if (!(await editItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -200,7 +193,7 @@ test.describe.serial('Custom Forms — CRUD', () => {
       }
 
       await editItem.click();
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Should navigate to /app/setting/custom-form/edit/$id
       const isOnEditPage = page.url().includes('custom-form/edit') || page.url().includes('custom-form');
@@ -233,7 +226,7 @@ test.describe.serial('Custom Forms — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const viewItem = page.getByRole('menuitem', { name: /^view$/i }).first();
       if (!(await viewItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -243,7 +236,7 @@ test.describe.serial('Custom Forms — CRUD', () => {
       }
 
       await viewItem.click();
-      await page.waitForTimeout(800);
+      await waitForAnimation(page.locator('[role="dialog"]').first());
 
       const dialog = page.locator('[role="dialog"]').first();
       if (await dialog.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -279,7 +272,7 @@ test.describe.serial('Custom Forms — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const hasAssign = await page
         .getByRole('menuitem', { name: /assign/i })
@@ -314,7 +307,7 @@ test.describe.serial('Custom Forms — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /delete/i }).first();
       if (!(await deleteItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -324,7 +317,7 @@ test.describe.serial('Custom Forms — CRUD', () => {
       }
 
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForAnimation(page.locator('[role="dialog"]').first());
 
       const confirmModal = page.locator('[role="dialog"]').first();
       if (await confirmModal.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -333,7 +326,7 @@ test.describe.serial('Custom Forms — CRUD', () => {
           .last();
         if (await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await confirmBtn.click({ force: true });
-          await page.waitForTimeout(2_000);
+          await waitForPageReady(page);
         }
         const dialogClosed = await confirmModal.isHidden({ timeout: 5_000 }).catch(() => false);
         if (!dialogClosed) {

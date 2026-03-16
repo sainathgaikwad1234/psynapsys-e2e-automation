@@ -30,7 +30,9 @@ export interface AuthOptions {
   environment?: string;
 }
 
-const API_URL = process.env.API_URL || 'https://test.qa.app.psynap-sys.com/api';
+// Bug fix: fallback must point to the API server, NOT the CDN/WAF frontend domain
+// The CDN at test.qa.app.psynap-sys.com returns HTTP 403 for direct API calls
+const API_URL = process.env.API_URL || 'https://qa.api.psynap-sys.com/api';
 const FRONTEND_ORIGIN = process.env.BASE_URL || 'https://test.qa.app.psynap-sys.com';
 
 /**

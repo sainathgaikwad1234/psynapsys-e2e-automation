@@ -1,5 +1,6 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { waitForPageReady, waitForDropdownOptions, waitForAnimation } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Audit Logs Tests (Therapist Portal)
@@ -25,7 +26,7 @@ test.describe('Audit Logs', () => {
     await page.goto('/app/setting/audit-logs');
     await expect(page).toHaveURL(/audit.?log/i, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -114,7 +115,7 @@ test.describe('Audit Logs', () => {
 
       await searchInput.click({ force: true });
       await searchInput.fill('login');
-      await page.waitForTimeout(1_500);
+      await waitForDropdownOptions(page).catch(() => {});
 
       // Verify page still responds after search
       await expect(page.locator('body')).toBeVisible();
@@ -135,7 +136,7 @@ test.describe('Audit Logs', () => {
       }
 
       await firstRow.click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForAnimation(page.locator('[role="dialog"]').first());
 
       // Either a detail panel, dialog, or just nothing clickable
       const dialog = page.locator('[role="dialog"]').first();

@@ -12,17 +12,29 @@
     "test:smoke": "playwright test --grep @smoke",
     "test:regression": "playwright test --grep @regression",
     "test:therapist": "playwright test --project=therapist-chrome",
+    "test:therapist:smoke": "playwright test --project=therapist-chrome --grep @smoke",
+    "test:firefox": "playwright test --project=therapist-firefox",
     "test:client": "playwright test --project=client-chrome",
+    "test:client:mobile": "playwright test --project=client-mobile",
     "test:auth": "playwright test e2e/auth/",
     "test:patients": "playwright test e2e/patients/",
     "test:appointments": "playwright test e2e/appointments/",
+    "test:settings": "playwright test e2e/settings/",
+    "test:billing": "playwright test e2e/billing/",
+    "test:groups": "playwright test e2e/groups/",
+    "test:tasks": "playwright test e2e/tasks/",
     "test:intake": "playwright test e2e/intake-forms/",
-    "test:api": "playwright test --project=api",
+    "test:api": "playwright test e2e/api/ --project=therapist-chrome",
     "test:report": "playwright show-report",
     "test:codegen": "playwright codegen",
+    "test:workers1": "playwright test --workers=1",
     "setup:auth": "playwright test auth.setup.ts",
     "clean": "rimraf test-results playwright-report",
-    "install:browsers": "playwright install --with-deps"
+    "install:browsers": "playwright install --with-deps",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write \"**/*.ts\"",
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@faker-js/faker": "^9.3.0",
@@ -31,7 +43,12 @@
     "@types/node": "^22.0.0",
     "dotenv": "^16.4.7",
     "rimraf": "^6.0.1",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "eslint": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint-plugin-playwright": "^2.0.0",
+    "prettier": "^3.0.0"
   },
   "engines": {
     "node": ">=20.0.0"

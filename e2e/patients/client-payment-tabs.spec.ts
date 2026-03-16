@@ -1,5 +1,10 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForAnimation,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Payment Sub-tabs Tests (Therapist Portal)
@@ -18,8 +23,7 @@ import { type Page } from '@playwright/test';
 async function resolveClientId(page: Page): Promise<string> {
   await page.goto('/app/client');
   await expect(page).toHaveURL(/\/app\/client/, { timeout: 15_000 });
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
   const firstIdCell = page.locator('table tbody tr').first().locator('td').first();
   await expect(firstIdCell).toHaveText(/^\d+$/, { timeout: 20_000 });
   return firstIdCell.innerText();
@@ -28,8 +32,7 @@ async function resolveClientId(page: Page): Promise<string> {
 async function goToPaymentTab(page: Page, clientId: string, tab: string): Promise<void> {
   await page.goto(`/app/client/${clientId}/payment/${tab}`);
   await expect(page).toHaveURL(new RegExp(`payment/${tab}`), { timeout: 15_000 });
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
@@ -101,7 +104,7 @@ test.describe.serial('Client Payment Tabs', () => {
       }
 
       await addBtn.click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page).catch(() => {});
 
       const dialog = page.locator('[role="dialog"]').first();
       if (await dialog.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -151,7 +154,7 @@ test.describe.serial('Client Payment Tabs', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const hasPrimary = await page.getByRole('menuitem', { name: /set as primary|make primary/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasStatus  = await page.getByRole('menuitem', { name: /change status|activate|deactivate/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
@@ -207,7 +210,7 @@ test.describe.serial('Client Payment Tabs', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const viewItem = page.getByRole('menuitem', { name: /^view$/i }).first();
       if (!(await viewItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -217,7 +220,7 @@ test.describe.serial('Client Payment Tabs', () => {
       }
 
       await viewItem.click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page).catch(() => {});
 
       const dialog = page.locator('[role="dialog"]').first();
       if (await dialog.isVisible({ timeout: 5_000 }).catch(() => false)) {

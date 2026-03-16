@@ -1,5 +1,12 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForAnimation,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Vitals & Assessments CRUD Tests (Therapist Portal)
@@ -33,14 +40,7 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 /**
  * Fill a Mantine NumberInput by label.
@@ -74,7 +74,7 @@ test.describe.serial('Client Vitals & Assessments — CRUD', () => {
   async function goToVitals(page: Page): Promise<void> {
     await page.goto(`/app/client/${clientId}/vitals-assessment`);
     await expect(page).toHaveURL(/\/vitals-assessment/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
   }
 
   /** Fill the vitals form inside an open dialog.
@@ -161,7 +161,7 @@ test.describe.serial('Client Vitals & Assessments — CRUD', () => {
       const addBtn = page.getByRole('button', { name: /add vitals/i }).first();
       await expect(addBtn).toBeVisible({ timeout: 10_000 });
       await addBtn.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -176,7 +176,7 @@ test.describe.serial('Client Vitals & Assessments — CRUD', () => {
       await goToVitals(page);
 
       await page.getByRole('button', { name: /add vitals/i }).first().click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -194,7 +194,7 @@ test.describe.serial('Client Vitals & Assessments — CRUD', () => {
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
     },
@@ -232,12 +232,12 @@ test.describe.serial('Client Vitals & Assessments — CRUD', () => {
       // Open action menu
       const menuBtn = firstRow.locator('button').last();
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /^edit$/i }).first();
       await expect(editItem).toBeVisible({ timeout: 5_000 });
       await editItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -252,7 +252,7 @@ test.describe.serial('Client Vitals & Assessments — CRUD', () => {
 
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
 
@@ -280,12 +280,12 @@ test.describe.serial('Client Vitals & Assessments — CRUD', () => {
       // Open action menu
       const menuBtn = firstRow.locator('button').last();
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /^delete$/i }).first();
       await expect(deleteItem).toBeVisible({ timeout: 5_000 });
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       // Confirm: "Delete Vitals & Assessments" modal with "Delete" button
       const confirmDialog = page.locator('[role="dialog"]').first();
@@ -296,10 +296,9 @@ test.describe.serial('Client Vitals & Assessments — CRUD', () => {
         .first();
       await expect(confirmBtn).toBeVisible({ timeout: 5_000 });
       await confirmBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       // Wait for row count to decrease OR a success notification
-      await page.waitForTimeout(500);
       const rowsAfter = await page.locator('table tbody tr').count();
       // Accept either fewer rows or a success notification (pre-existing rows may exist)
       const deleted = rowsAfter < rowsBefore

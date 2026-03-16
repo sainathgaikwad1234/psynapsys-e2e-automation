@@ -1,5 +1,6 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { waitForPageReady, waitForAnimation } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Staff Profile Tests (Therapist Portal)
@@ -22,7 +23,7 @@ async function goToStaffList(page: Page): Promise<void> {
   await page.goto('/app/setting/staff-setting');
   await expect(page).toHaveURL(/staff-setting/, { timeout: 15_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
@@ -75,7 +76,7 @@ test.describe.serial('Staff Profile — Settings', () => {
       }
 
       await nameCell.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Should navigate to staff profile or open detail modal
       const isOnProfile = page.url().includes('staff-profile') || page.url().includes('staff-setting');
@@ -100,7 +101,7 @@ test.describe.serial('Staff Profile — Settings', () => {
     async ({ page }) => {
       await page.goto('/app/setting/staff-setting/staff-profile');
       await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // May redirect to staff list if no staff ID is in URL
       const isOnProfile  = page.url().includes('staff-profile');
@@ -130,7 +131,7 @@ test.describe.serial('Staff Profile — Settings', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const hasView     = await page.getByRole('menuitem', { name: /view|profile/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasEdit     = await page.getByRole('menuitem', { name: /^edit$/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
@@ -162,7 +163,7 @@ test.describe.serial('Staff Profile — Settings', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       // Try "View" menu item first
       const viewItem = page
@@ -176,7 +177,7 @@ test.describe.serial('Staff Profile — Settings', () => {
       }
 
       await viewItem.click();
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Should navigate to profile page or open modal
       const hasDialog = await page.locator('[role="dialog"]').first().isVisible({ timeout: 3_000 }).catch(() => false);
@@ -232,7 +233,7 @@ test.describe.serial('Staff Profile — Settings', () => {
     async ({ page }) => {
       await page.goto('/app/setting/staff-setting/therapists');
       await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       const isOnTherapists = page.url().includes('therapist');
       await expect(page.locator('body')).toBeVisible();

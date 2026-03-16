@@ -1,5 +1,11 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForAnimation,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Referral-In CRUD Tests (Therapist Portal)
@@ -22,7 +28,7 @@ async function resolveClientId(page: Page): Promise<string> {
   await page.goto('/app/client');
   await expect(page).toHaveURL(/\/app\/client/, { timeout: 15_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
   const firstIdCell = page.locator('table tbody tr').first().locator('td').first();
   await expect(firstIdCell).toHaveText(/^\d+$/, { timeout: 20_000 });
   return firstIdCell.innerText();
@@ -32,7 +38,7 @@ async function goToReferralIn(page: Page, clientId: string): Promise<void> {
   await page.goto(`/app/client/${clientId}/referrals/referral_in`);
   await expect(page).toHaveURL(/referrals\/referral_in/, { timeout: 15_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
@@ -110,7 +116,7 @@ test.describe.serial('Client Referral-In — CRUD', () => {
       }
 
       await addBtn.click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       if (await dialog.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -162,7 +168,7 @@ test.describe.serial('Client Referral-In — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /^edit$/i }).first();
       if (!(await editItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -172,7 +178,7 @@ test.describe.serial('Client Referral-In — CRUD', () => {
       }
 
       await editItem.click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       if (await dialog.isVisible({ timeout: 8_000 }).catch(() => false)) {
@@ -211,7 +217,7 @@ test.describe.serial('Client Referral-In — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const viewItem = page.getByRole('menuitem', { name: /^view$/i }).first();
       if (!(await viewItem.isVisible({ timeout: 3_000 }).catch(() => false))) {
@@ -221,7 +227,7 @@ test.describe.serial('Client Referral-In — CRUD', () => {
       }
 
       await viewItem.click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       if (await dialog.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -257,7 +263,7 @@ test.describe.serial('Client Referral-In — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /delete/i }).first();
       if (!(await deleteItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -267,7 +273,7 @@ test.describe.serial('Client Referral-In — CRUD', () => {
       }
 
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const confirmModal = page.locator('[role="dialog"]').first();
       if (await confirmModal.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -276,7 +282,7 @@ test.describe.serial('Client Referral-In — CRUD', () => {
           .last();
         if (await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await confirmBtn.click({ force: true });
-          await page.waitForTimeout(2_000);
+          await waitForDialogClose(page);
         }
 
         const dialogClosed = await confirmModal.isHidden({ timeout: 5_000 }).catch(() => false);

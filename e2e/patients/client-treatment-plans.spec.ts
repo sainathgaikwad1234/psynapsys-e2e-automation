@@ -1,5 +1,10 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForAnimation,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Treatment Plans Tests (Therapist Portal)
@@ -23,7 +28,7 @@ async function resolveClientId(page: Page): Promise<string> {
   await page.goto('/app/client');
   await expect(page).toHaveURL(/\/app\/client/, { timeout: 15_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
   const firstIdCell = page.locator('table tbody tr').first().locator('td').first();
   await expect(firstIdCell).toHaveText(/^\d+$/, { timeout: 20_000 });
   return firstIdCell.innerText();
@@ -46,7 +51,7 @@ test.describe.serial('Client Treatment Plans', () => {
     await page.goto(`/app/client/${clientId}/records/treatment-plans`);
     await expect(page).toHaveURL(/treatment-plans/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -108,7 +113,7 @@ test.describe.serial('Client Treatment Plans', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const viewItem = page.getByRole('menuitem', { name: /^view$/i }).first();
       if (!(await viewItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -119,7 +124,7 @@ test.describe.serial('Client Treatment Plans', () => {
       }
 
       await viewItem.click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       const isDialog = await dialog.isVisible({ timeout: 5_000 }).catch(() => false);
@@ -155,7 +160,7 @@ test.describe.serial('Client Treatment Plans', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       // Check for conditional menu items
       const hasComplete  = await page.getByRole('menuitem', { name: /mark as completed/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);

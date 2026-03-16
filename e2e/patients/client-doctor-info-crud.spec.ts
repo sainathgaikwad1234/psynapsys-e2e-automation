@@ -1,5 +1,11 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Doctor Information CRU Tests (Therapist Portal)
@@ -26,14 +32,7 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 const TS = Date.now();
 const DOCTOR_NAME = `Dr. E2E ${TS.toString().slice(-6)}`;
@@ -59,7 +58,7 @@ test.describe.serial('Client Doctor Information — CRU', () => {
   async function goToDoctorInfo(page: Page): Promise<void> {
     await page.goto(`/app/client/${clientId}/biopsychosocial/doctor-info`);
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
 
     const url = page.url();
     const hasSection = await page
@@ -72,7 +71,7 @@ test.describe.serial('Client Doctor Information — CRU', () => {
       // Fall back to profile
       await page.goto(`/app/client/${clientId}/profile`);
       await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
     }
   }
 
@@ -115,7 +114,7 @@ test.describe.serial('Client Doctor Information — CRU', () => {
       }
 
       await editBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       const isDialog = await dialog.isVisible({ timeout: 3_000 }).catch(() => false);
@@ -153,7 +152,7 @@ test.describe.serial('Client Doctor Information — CRU', () => {
 
       if (await editBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await editBtn.click({ force: true });
-        await page.waitForTimeout(800);
+        await waitForDialogOpen(page);
         await disableLoadingOverlay(page);
       }
 
@@ -169,7 +168,6 @@ test.describe.serial('Client Doctor Information — CRU', () => {
       if (await nameInput.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await nameInput.first().click({ force: true });
         await nameInput.first().fill(DOCTOR_NAME);
-        await page.waitForTimeout(200);
       }
 
       // Phone number
@@ -180,7 +178,6 @@ test.describe.serial('Client Doctor Information — CRU', () => {
       if (await phoneInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await phoneInput.first().click({ force: true });
         await phoneInput.first().fill(DOCTOR_PHONE);
-        await page.waitForTimeout(200);
       }
 
       // Specialty / Designation
@@ -191,7 +188,6 @@ test.describe.serial('Client Doctor Information — CRU', () => {
       if (await specialtyInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await specialtyInput.first().click({ force: true });
         await specialtyInput.first().fill('General Practitioner');
-        await page.waitForTimeout(200);
       }
 
       // Save
@@ -209,7 +205,11 @@ test.describe.serial('Client Doctor Information — CRU', () => {
 
       await saveBtn.click({ force: true });
       const resp = await apiResp;
-      await page.waitForTimeout(3_000);
+      if (isDialog) {
+        await waitForDialogClose(page);
+      } else {
+        await waitForPageReady(page);
+      }
 
       if (resp && resp.status() >= 400) {
         if (isDialog) {
@@ -242,7 +242,7 @@ test.describe.serial('Client Doctor Information — CRU', () => {
 
       if (await editBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await editBtn.click({ force: true });
-        await page.waitForTimeout(800);
+        await waitForDialogOpen(page);
         await disableLoadingOverlay(page);
       }
 
@@ -258,14 +258,17 @@ test.describe.serial('Client Doctor Information — CRU', () => {
       if (await nameInput.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await nameInput.first().click({ force: true });
         await nameInput.first().fill(UPDATED_DOCTOR_NAME);
-        await page.waitForTimeout(200);
       }
 
       const saveScope = isDialog ? dialog : page;
       const saveBtn = saveScope.getByRole('button', { name: /^save$|^update$/i }).last();
       if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await saveBtn.click({ force: true });
-        await page.waitForTimeout(3_000);
+        if (isDialog) {
+          await waitForDialogClose(page);
+        } else {
+          await waitForPageReady(page);
+        }
       }
 
       await expect(page.locator('body')).toBeVisible();

@@ -1,5 +1,11 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Development History CRU Tests (Therapist Portal)
@@ -23,14 +29,7 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 const TS = Date.now();
 const DEV_NOTES = `E2E dev history ${TS.toString().slice(-6)}`;
@@ -52,7 +51,7 @@ test.describe.serial('Client Development History — CRU', () => {
     await page.goto(`/app/client/${clientId}/biopsychosocial_history/development-history`);
     await expect(page).toHaveURL(/biopsychosocial_history\/development-history/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -93,7 +92,7 @@ test.describe.serial('Client Development History — CRU', () => {
       }
 
       await editBtn.first().click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       const isDialog = await dialog.isVisible({ timeout: 3_000 }).catch(() => false);
@@ -129,7 +128,7 @@ test.describe.serial('Client Development History — CRU', () => {
 
       if (await editBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await editBtn.click({ force: true });
-        await page.waitForTimeout(800);
+        await waitForDialogOpen(page);
         await disableLoadingOverlay(page);
       }
 
@@ -138,7 +137,6 @@ test.describe.serial('Client Development History — CRU', () => {
       const checkCount = await checkboxes.count();
       if (checkCount > 0) {
         await checkboxes.first().click({ force: true }).catch(() => {});
-        await page.waitForTimeout(300);
       }
 
       // Text fields / notes
@@ -149,7 +147,6 @@ test.describe.serial('Client Development History — CRU', () => {
       if (await notesField.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await notesField.first().click({ force: true });
         await notesField.first().fill(DEV_NOTES);
-        await page.waitForTimeout(200);
       }
 
       const dialog = page.locator('[role="dialog"]').first();
@@ -159,7 +156,11 @@ test.describe.serial('Client Development History — CRU', () => {
 
       if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await saveBtn.click({ force: true });
-        await page.waitForTimeout(3_000);
+        if (isDialog) {
+          await waitForDialogClose(page);
+        } else {
+          await waitForPageReady(page);
+        }
       }
 
       await expect(page.locator('body')).toBeVisible();
@@ -183,7 +184,7 @@ test.describe.serial('Client Development History — CRU', () => {
 
       if (await editBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await editBtn.click({ force: true });
-        await page.waitForTimeout(800);
+        await waitForDialogOpen(page);
         await disableLoadingOverlay(page);
       }
 
@@ -194,7 +195,6 @@ test.describe.serial('Client Development History — CRU', () => {
       if (await notesField.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await notesField.first().click({ force: true });
         await notesField.first().fill(UPDATED_DEV_NOTES);
-        await page.waitForTimeout(200);
       }
 
       const dialog = page.locator('[role="dialog"]').first();
@@ -204,7 +204,11 @@ test.describe.serial('Client Development History — CRU', () => {
 
       if (await saveBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await saveBtn.click({ force: true });
-        await page.waitForTimeout(3_000);
+        if (isDialog) {
+          await waitForDialogClose(page);
+        } else {
+          await waitForPageReady(page);
+        }
       }
 
       await expect(page.locator('body')).toBeVisible();

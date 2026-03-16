@@ -1,4 +1,7 @@
 import { test, expect } from '../../support/merged-fixtures';
+import { type Page } from '@playwright/test';
+import { disableLoadingOverlay, selectFirstOption } from '../../support/helpers/mantine-helpers';
+import { waitForPageReady, waitForAnimation, waitForDropdownOptions } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — CPT Code CRUD E2E Tests (Therapist Portal)
@@ -34,42 +37,19 @@ const CPT_NAME_UPD   = `${CPT_NAME} Upd`;
 const CPT_DESC       = `E2E test CPT code created at ${TS}`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function disableLoadingOverlay(page: any) {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el: Element) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
-
-/**
- * Click a Mantine Select combobox and pick the first visible option.
- */
-async function selectFirstOption(page: any, fieldLocator: any) {
-  const field = fieldLocator.first ? fieldLocator.first() : fieldLocator;
-  if (!(await field.isVisible({ timeout: 2_000 }).catch(() => false))) return;
-  await field.click({ force: true });
-  await page.waitForTimeout(400);
-  const firstOpt = page.getByRole('option').first();
-  if (await firstOpt.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await firstOpt.click({ force: true });
-  }
-  await page.waitForTimeout(300);
-}
+// disableLoadingOverlay and selectFirstOption are imported from mantine-helpers
 
 /**
  * Click the action (⋮) icon button for the row that contains rowText.
  * Returns after the menu is confirmed visible.
  */
-async function clickRowAction(page: any, rowText: string) {
+async function clickRowAction(page: Page, rowText: string) {
   const row = page.locator('tr').filter({ hasText: rowText }).first();
   await expect(row).toBeVisible({ timeout: 10_000 });
   // Action menu is triggered by the last button in the row (DotsThreeVertical ActionIcon)
   const actionBtn = row.locator('button').last();
   await actionBtn.click({ force: true });
-  await page.waitForTimeout(500);
+  await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -83,7 +63,7 @@ test.describe.serial('CPT Codes — Create / Read / Update / Delete', () => {
     async ({ page }) => {
       await page.goto('/app/setting/CPT-code');
       await expect(page).toHaveURL(/\/app\/setting\/CPT-code/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const addBtn = page.getByRole('button', { name: /add cpt code/i }).first();
       await expect(addBtn).toBeVisible({ timeout: 10_000 });
@@ -104,7 +84,7 @@ test.describe.serial('CPT Codes — Create / Read / Update / Delete', () => {
     async ({ page }) => {
       await page.goto('/app/setting/CPT-code');
       await expect(page).toHaveURL(/\/app\/setting\/CPT-code/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Open modal
       await page.getByRole('button', { name: /add cpt code/i }).first().click();
@@ -163,7 +143,7 @@ test.describe.serial('CPT Codes — Create / Read / Update / Delete', () => {
       const searchInput = page.getByPlaceholder(/search/i).first();
       if (await searchInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.fill(CPT_NAME);
-        await page.waitForTimeout(1_500);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(CPT_NAME)).toBeVisible({ timeout: 15_000 });
@@ -177,12 +157,12 @@ test.describe.serial('CPT Codes — Create / Read / Update / Delete', () => {
     async ({ page }) => {
       await page.goto('/app/setting/CPT-code');
       await expect(page).toHaveURL(/\/app\/setting\/CPT-code/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const searchInput = page.getByPlaceholder(/search/i).first();
       await expect(searchInput).toBeVisible({ timeout: 10_000 });
       await searchInput.fill(CPT_NAME);
-      await page.waitForTimeout(1_500);
+      await waitForDropdownOptions(page).catch(() => {});
 
       await expect(page.getByText(CPT_NAME)).toBeVisible({ timeout: 15_000 });
     },
@@ -195,13 +175,13 @@ test.describe.serial('CPT Codes — Create / Read / Update / Delete', () => {
     async ({ page }) => {
       await page.goto('/app/setting/CPT-code');
       await expect(page).toHaveURL(/\/app\/setting\/CPT-code/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Search for the row
       const searchInput = page.getByPlaceholder(/search/i).first();
       if (await searchInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.fill(CPT_NAME);
-        await page.waitForTimeout(1_500);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(CPT_NAME)).toBeVisible({ timeout: 15_000 });
@@ -240,7 +220,7 @@ test.describe.serial('CPT Codes — Create / Read / Update / Delete', () => {
       const searchInput2 = page.getByPlaceholder(/search/i).first();
       if (await searchInput2.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await searchInput2.fill(CPT_NAME_UPD);
-        await page.waitForTimeout(1_500);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(CPT_NAME_UPD)).toBeVisible({ timeout: 15_000 });
@@ -254,13 +234,13 @@ test.describe.serial('CPT Codes — Create / Read / Update / Delete', () => {
     async ({ page }) => {
       await page.goto('/app/setting/CPT-code');
       await expect(page).toHaveURL(/\/app\/setting\/CPT-code/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Search for the updated row
       const searchInput = page.getByPlaceholder(/search/i).first();
       if (await searchInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.fill(CPT_NAME_UPD);
-        await page.waitForTimeout(1_500);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(CPT_NAME_UPD)).toBeVisible({ timeout: 15_000 });
@@ -288,7 +268,7 @@ test.describe.serial('CPT Codes — Create / Read / Update / Delete', () => {
       await expect(confirmDialog).not.toBeVisible({ timeout: 10_000 });
 
       // Verify the CPT code is gone from the table
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
       await expect(page.getByText(CPT_NAME_UPD)).not.toBeVisible({ timeout: 10_000 });
     },
   );

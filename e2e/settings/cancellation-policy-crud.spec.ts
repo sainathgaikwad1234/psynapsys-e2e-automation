@@ -1,4 +1,7 @@
 import { test, expect } from '../../support/merged-fixtures';
+import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import { waitForPageReady, waitForAnimation, waitForDropdownOptions } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Cancellation Policy CRUD E2E Tests (Therapist Portal)
@@ -29,25 +32,17 @@ const POLICY_FEES     = '150';
 const POLICY_FEES_UPD = '200';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function disableLoadingOverlay(page: any) {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el: Element) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 /**
  * Click the action (⋮) icon button for the row containing rowText.
  */
-async function clickRowAction(page: any, rowText: string) {
+async function clickRowAction(page: Page, rowText: string) {
   const row = page.locator('tr').filter({ hasText: rowText }).first();
   await expect(row).toBeVisible({ timeout: 10_000 });
   const actionBtn = row.locator('button').last();
   await actionBtn.click({ force: true });
-  await page.waitForTimeout(500);
+  await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -61,7 +56,7 @@ test.describe.serial('Cancellation Policy — Create / Read / Update / Delete', 
     async ({ page }) => {
       await page.goto('/app/setting/cancellation-policy');
       await expect(page).toHaveURL(/\/app\/setting\/cancellation-policy/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // "Add" button from the custom table header
       const addBtn = page.getByRole('button', { name: /^add$/i }).first();
@@ -82,7 +77,7 @@ test.describe.serial('Cancellation Policy — Create / Read / Update / Delete', 
     async ({ page }) => {
       await page.goto('/app/setting/cancellation-policy');
       await expect(page).toHaveURL(/\/app\/setting\/cancellation-policy/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Open Add modal
       await page.getByRole('button', { name: /^add$/i }).first().click();
@@ -111,7 +106,7 @@ test.describe.serial('Cancellation Policy — Create / Read / Update / Delete', 
       const searchInput = page.getByPlaceholder(/search/i).first();
       if (await searchInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.fill(POLICY_TYPE);
-        await page.waitForTimeout(1_000);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(POLICY_TYPE)).toBeVisible({ timeout: 15_000 });
@@ -125,12 +120,12 @@ test.describe.serial('Cancellation Policy — Create / Read / Update / Delete', 
     async ({ page }) => {
       await page.goto('/app/setting/cancellation-policy');
       await expect(page).toHaveURL(/\/app\/setting\/cancellation-policy/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const searchInput = page.getByPlaceholder(/search/i).first();
       await expect(searchInput).toBeVisible({ timeout: 10_000 });
       await searchInput.fill(POLICY_TYPE);
-      await page.waitForTimeout(1_000);
+      await waitForDropdownOptions(page).catch(() => {});
 
       await expect(page.getByText(POLICY_TYPE)).toBeVisible({ timeout: 15_000 });
     },
@@ -143,13 +138,13 @@ test.describe.serial('Cancellation Policy — Create / Read / Update / Delete', 
     async ({ page }) => {
       await page.goto('/app/setting/cancellation-policy');
       await expect(page).toHaveURL(/\/app\/setting\/cancellation-policy/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Filter to find the row
       const searchInput = page.getByPlaceholder(/search/i).first();
       if (await searchInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.fill(POLICY_TYPE);
-        await page.waitForTimeout(1_000);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(POLICY_TYPE)).toBeVisible({ timeout: 15_000 });
@@ -193,7 +188,7 @@ test.describe.serial('Cancellation Policy — Create / Read / Update / Delete', 
       const searchInput2 = page.getByPlaceholder(/search/i).first();
       if (await searchInput2.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await searchInput2.fill(POLICY_TYPE_UPD);
-        await page.waitForTimeout(1_000);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(POLICY_TYPE_UPD)).toBeVisible({ timeout: 15_000 });
@@ -207,13 +202,13 @@ test.describe.serial('Cancellation Policy — Create / Read / Update / Delete', 
     async ({ page }) => {
       await page.goto('/app/setting/cancellation-policy');
       await expect(page).toHaveURL(/\/app\/setting\/cancellation-policy/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Search for the updated policy
       const searchInput = page.getByPlaceholder(/search/i).first();
       if (await searchInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.fill(POLICY_TYPE_UPD);
-        await page.waitForTimeout(1_000);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(POLICY_TYPE_UPD)).toBeVisible({ timeout: 15_000 });
@@ -241,7 +236,7 @@ test.describe.serial('Cancellation Policy — Create / Read / Update / Delete', 
       await expect(confirmDialog).not.toBeVisible({ timeout: 10_000 });
 
       // Verify the policy is gone
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
       await expect(page.getByText(POLICY_TYPE_UPD)).not.toBeVisible({ timeout: 10_000 });
     },
   );

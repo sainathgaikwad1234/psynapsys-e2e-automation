@@ -1,4 +1,5 @@
 import { test, expect } from '../../support/merged-fixtures';
+import { waitForPageReady, waitForDialogOpen, waitForDialogClose, waitForNetworkIdle } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Communication Functional Tests (Therapist Portal)
@@ -6,7 +7,7 @@ import { test, expect } from '../../support/merged-fixtures';
  * Interaction tests for messaging and fax functionality:
  *   Messages:
  *     - Verify message list sidebar / thread panel
- *     - Click "New Message" → compose dialog opens → cancel
+ *     - Click "New Message" -> compose dialog opens -> cancel
  *     - Switch between All / Archived / Assigned / Pinned tabs
  *     - Open a message thread if one exists
  *   Fax:
@@ -15,18 +16,18 @@ import { test, expect } from '../../support/merged-fixtures';
  *     - Open fax detail if records exist
  *     - Verify "Send Fax" button exists
  *
- * Read-only — no messages are sent and no faxes are transmitted.
+ * Read-only -- no messages are sent and no faxes are transmitted.
  *
  * @tag @regression @communication @functional
  */
 
-// ── Messages ──────────────────────────────────────────────────────────────────
+// -- Messages ------------------------------------------------------------------
 
 test.describe('Communication — Messages', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/communication/messages/all');
     await expect(page).toHaveURL(/\/app\/communication\/messages\/all/, { timeout: 15_000 });
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   });
 
   test(
@@ -61,7 +62,7 @@ test.describe('Communication — Messages', () => {
 
       if (await composeBtn.isVisible({ timeout: 8_000 }).catch(() => false)) {
         await composeBtn.click();
-        await page.waitForTimeout(1_000);
+        await waitForDialogOpen(page);
 
         // Compose modal / drawer should appear
         const composeDialog = page
@@ -76,7 +77,7 @@ test.describe('Communication — Messages', () => {
           .first();
         await expect(inputField).toBeVisible({ timeout: 5_000 });
 
-        // Cancel — do NOT send
+        // Cancel -- do NOT send
         const cancelBtn = page
           .getByRole('button', { name: /cancel|close|discard/i })
           .first()
@@ -87,7 +88,7 @@ test.describe('Communication — Messages', () => {
           await page.keyboard.press('Escape');
         }
 
-        await page.waitForTimeout(500);
+        await waitForDialogClose(page);
         await expect(page.locator('body')).toBeVisible();
       }
     },
@@ -160,7 +161,7 @@ test.describe('Communication — Messages', () => {
 
       if (await messageItem.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await messageItem.first().click({ force: true });
-        await page.waitForTimeout(1_500);
+        await waitForNetworkIdle(page);
 
         // Thread panel (right side) should now show message content
         const threadPanel = page
@@ -172,13 +173,13 @@ test.describe('Communication — Messages', () => {
   );
 });
 
-// ── Fax ───────────────────────────────────────────────────────────────────────
+// -- Fax -----------------------------------------------------------------------
 
 test.describe('Communication — Fax', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/communication/fax/incoming');
     await expect(page).toHaveURL(/\/app\/communication\/fax\/incoming/, { timeout: 15_000 });
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   });
 
   test(
@@ -231,7 +232,7 @@ test.describe('Communication — Fax', () => {
 
       if (await sendBtn.isVisible({ timeout: 8_000 }).catch(() => false)) {
         await sendBtn.click();
-        await page.waitForTimeout(1_000);
+        await waitForDialogOpen(page);
 
         const dialog = page.locator('[role="dialog"]').first();
         await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -262,7 +263,7 @@ test.describe('Communication — Fax', () => {
       const firstRow = page.locator('table tbody tr').first();
       if (await firstRow.isVisible({ timeout: 8_000 }).catch(() => false)) {
         await firstRow.click({ force: true });
-        await page.waitForTimeout(1_500);
+        await waitForNetworkIdle(page);
         // Detail view or preview panel should be visible
         await expect(page.locator('body')).toBeVisible();
       }

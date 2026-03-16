@@ -1,5 +1,13 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForAnimation,
+  waitForDropdownOptions,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Insurance CRUD Tests (Therapist Portal)
@@ -20,14 +28,7 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 // ── Test Data ─────────────────────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ test.describe.serial('Client Insurance — CRUD', () => {
     await page.goto(`/app/client/${clientId}/payment/insurance`);
     await expect(page).toHaveURL(/\/payment\/insurance/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
   }
 
   // ── CREATE ────────────────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ test.describe.serial('Client Insurance — CRUD', () => {
         .or(page.getByRole('button', { name: /^add$/i }).first());
       await expect(addBtn.first()).toBeVisible({ timeout: 10_000 });
       await addBtn.first().click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -92,7 +93,7 @@ test.describe.serial('Client Insurance — CRUD', () => {
         return;
       }
       await addBtn.first().click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -105,15 +106,13 @@ test.describe.serial('Client Insurance — CRUD', () => {
         .or(dialog.getByLabel(/insurance company/i).first());
       if (await insuranceInput.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await insuranceInput.first().click({ force: true });
-        await page.waitForTimeout(300);
         await insuranceInput.first().pressSequentially('a', { delay: 50 });
-        await page.waitForTimeout(1_500);
+        await waitForDropdownOptions(page).catch(() => {});
         const opt = page.getByRole('option').first();
         if (await opt.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await opt.click({ force: true });
         }
         await page.keyboard.press('Tab');
-        await page.waitForTimeout(300);
       }
 
       // Member ID / Subscriber ID
@@ -124,7 +123,6 @@ test.describe.serial('Client Insurance — CRUD', () => {
       if (await memberIdInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await memberIdInput.first().click({ force: true });
         await memberIdInput.first().fill(MEMBER_ID);
-        await page.waitForTimeout(200);
       }
 
       // Insurance Type — Select (Primary/Secondary/Tertiary)
@@ -134,13 +132,12 @@ test.describe.serial('Client Insurance — CRUD', () => {
         .or(dialog.getByLabel(/insurance type|type/i).first());
       if (await typeInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await typeInput.first().click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForDropdownOptions(page).catch(() => {});
         const typeOpt = page.getByRole('option').first();
         if (await typeOpt.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await typeOpt.click({ force: true });
         }
         await page.keyboard.press('Tab');
-        await page.waitForTimeout(300);
       }
 
       // Relationship — Select
@@ -150,13 +147,12 @@ test.describe.serial('Client Insurance — CRUD', () => {
         .or(dialog.getByLabel(/relationship|relation/i).first());
       if (await relationInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await relationInput.first().click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForDropdownOptions(page).catch(() => {});
         const relOpt = page.getByRole('option').first();
         if (await relOpt.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await relOpt.click({ force: true });
         }
         await page.keyboard.press('Tab');
-        await page.waitForTimeout(300);
       }
 
       // Save
@@ -164,7 +160,7 @@ test.describe.serial('Client Insurance — CRUD', () => {
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(3_000);
+      await waitForDialogClose(page);
 
       const dialogHidden = await dialog.isHidden({ timeout: 8_000 }).catch(() => false);
       if (!dialogHidden) {
@@ -223,7 +219,7 @@ test.describe.serial('Client Insurance — CRUD', () => {
       // Open action menu or Edit button
       const menuBtn = firstRow.locator('button').last();
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /edit/i }).first();
       const hasEdit = await editItem.isVisible({ timeout: 3_000 }).catch(() => false);
@@ -240,10 +236,10 @@ test.describe.serial('Client Insurance — CRUD', () => {
         await editItem.click();
       }
 
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       // Update Member ID
@@ -254,7 +250,6 @@ test.describe.serial('Client Insurance — CRUD', () => {
       if (await memberIdInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await memberIdInput.first().click({ force: true });
         await memberIdInput.first().fill(UPDATED_MEMBER_ID);
-        await page.waitForTimeout(200);
       }
 
       const apiResp = page.waitForResponse(
@@ -267,7 +262,7 @@ test.describe.serial('Client Insurance — CRUD', () => {
       await saveBtn.click({ force: true });
 
       const resp = await apiResp;
-      await page.waitForTimeout(2_000);
+      await waitForDialogClose(page);
 
       if (resp && resp.status() >= 400) {
         const cancelBtn = dialog.getByRole('button', { name: /cancel/i }).first();
@@ -300,7 +295,7 @@ test.describe.serial('Client Insurance — CRUD', () => {
 
       const menuBtn = firstRow.locator('button').last();
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /delete/i }).first();
       if (!(await deleteItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -308,7 +303,7 @@ test.describe.serial('Client Insurance — CRUD', () => {
         return;
       }
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const confirmModal = page.locator('[role="dialog"]').first();
       await expect(confirmModal).toBeVisible({ timeout: 8_000 });
@@ -323,7 +318,7 @@ test.describe.serial('Client Insurance — CRUD', () => {
         .waitFor({ state: 'hidden', timeout: 8_000 })
         .then(() => true)
         .catch(() => false);
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       const rowCountAfter = await page.locator('table tbody tr').count();
       const successNotif = await page

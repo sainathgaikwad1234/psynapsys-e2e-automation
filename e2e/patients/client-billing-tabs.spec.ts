@@ -1,5 +1,10 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForAnimation,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Billing Sub-tabs Tests (Therapist Portal)
@@ -23,7 +28,7 @@ async function resolveClientId(page: Page): Promise<string> {
   await page.goto('/app/client');
   await expect(page).toHaveURL(/\/app\/client/, { timeout: 15_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
   const firstIdCell = page.locator('table tbody tr').first().locator('td').first();
   await expect(firstIdCell).toHaveText(/^\d+$/, { timeout: 20_000 });
   return firstIdCell.innerText();
@@ -33,7 +38,7 @@ async function goToBillingTab(page: Page, clientId: string, tab: string): Promis
   await page.goto(`/app/client/${clientId}/billings/${tab}`);
   await expect(page).toHaveURL(new RegExp(`billings/${tab}`), { timeout: 15_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 }
 
 function hasDataOrEmpty(hasTable: boolean, hasEmpty: boolean): boolean {
@@ -123,7 +128,7 @@ test.describe.serial('Client Billing Tabs', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const hasView = await page.getByRole('menuitem', { name: /^view$/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasGenerate = await page.getByRole('menuitem', { name: /generate invoice/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
@@ -203,7 +208,7 @@ test.describe.serial('Client Billing Tabs', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const hasMarkPaid    = await page.getByRole('menuitem', { name: /mark as paid/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasSendPayment = await page.getByRole('menuitem', { name: /send payment/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
@@ -270,7 +275,7 @@ test.describe.serial('Client Billing Tabs', () => {
       }
 
       await createBtn.click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page).catch(() => {});
 
       const dialog = page.locator('[role="dialog"]').first();
       if (await dialog.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -306,7 +311,7 @@ test.describe.serial('Client Billing Tabs', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const hasView   = await page.getByRole('menuitem', { name: /^view$/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasDelete = await page.getByRole('menuitem', { name: /delete/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);

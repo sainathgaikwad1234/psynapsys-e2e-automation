@@ -1,5 +1,12 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForAnimation,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Consultation CRUD Tests (Therapist Portal)
@@ -18,15 +25,7 @@ import { type Page } from '@playwright/test';
  */
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
 
@@ -35,8 +34,7 @@ test.describe.serial('Consultation — CRUD', () => {
   async function goToConsultation(page: Page): Promise<void> {
     await page.goto('/app/client/consultation');
     await expect(page).toHaveURL(/\/app\/client\/consultation/, { timeout: 15_000 });
-    await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -124,7 +122,7 @@ test.describe.serial('Consultation — CRUD', () => {
 
       const nameCell = firstRow.locator('td').nth(1);
       await nameCell.click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page).catch(() => {});
 
       const dialog = page.locator('[role="dialog"]').first();
       const isDialog = await dialog.isVisible({ timeout: 5_000 }).catch(() => false);
@@ -133,7 +131,6 @@ test.describe.serial('Consultation — CRUD', () => {
         const closeBtn = dialog.getByRole('button', { name: /close|cancel/i }).first();
         if (await closeBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
           await closeBtn.click({ force: true });
-          await page.waitForTimeout(400);
         }
       } else {
         await expect(page.locator('body')).toBeVisible();
@@ -164,7 +161,7 @@ test.describe.serial('Consultation — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /^edit$/i }).first();
       if (!(await editItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -174,7 +171,7 @@ test.describe.serial('Consultation — CRUD', () => {
       }
 
       await editItem.click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -210,7 +207,7 @@ test.describe.serial('Consultation — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const hasAddAsClient = await page
         .getByRole('menuitem', { name: /add as client/i })
@@ -248,7 +245,7 @@ test.describe.serial('Consultation — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /delete/i }).first();
       if (!(await deleteItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -258,7 +255,7 @@ test.describe.serial('Consultation — CRUD', () => {
       }
 
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page).catch(() => {});
 
       const confirmModal = page.locator('[role="dialog"]').first();
       if (!(await confirmModal.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -271,7 +268,7 @@ test.describe.serial('Consultation — CRUD', () => {
         .last();
       if (await confirmBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await confirmBtn.click({ force: true });
-        await page.waitForTimeout(2_000);
+        await waitForDialogClose(page);
       }
 
       // Graceful — dialog may or may not close depending on server response

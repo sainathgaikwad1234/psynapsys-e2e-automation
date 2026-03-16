@@ -1,5 +1,11 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Mental Health History CRU Tests (Therapist Portal)
@@ -31,14 +37,7 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
 
@@ -55,7 +54,7 @@ test.describe.serial('Client Mental Health History — CRU', () => {
   async function goToMentalHistory(page: Page): Promise<void> {
     await page.goto(`/app/client/${clientId}/biopsychosocial_history/mental-history`);
     await expect(page).toHaveURL(/biopsychosocial_history\/mental-history/, { timeout: 15_000 });
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -82,7 +81,7 @@ test.describe.serial('Client Mental Health History — CRU', () => {
         return;
       }
       await addBtn.first().click({ force: true });
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -92,7 +91,6 @@ test.describe.serial('Client Mental Health History — CRU', () => {
       const firstCheckbox = dialog.getByRole('checkbox').first();
       if (await firstCheckbox.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await firstCheckbox.check({ force: true });
-        await page.waitForTimeout(200);
       }
 
       // Fill "What have you done to address it?" textarea
@@ -107,7 +105,7 @@ test.describe.serial('Client Mental Health History — CRU', () => {
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
     },
@@ -130,7 +128,6 @@ test.describe.serial('Client Mental Health History — CRU', () => {
       if (await therapySection.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await therapySection.scrollIntoViewIfNeeded();
       }
-      await page.waitForTimeout(500);
 
       // Find Add button near this section
       // Since all sections use "Add", we need to find the one closest to this section
@@ -146,7 +143,7 @@ test.describe.serial('Client Mental Health History — CRU', () => {
         test.skip();
         return;
       }
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -181,7 +178,7 @@ test.describe.serial('Client Mental Health History — CRU', () => {
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
     },
@@ -205,7 +202,7 @@ test.describe.serial('Client Mental Health History — CRU', () => {
       // Edit icon (img) is rendered by React only during row hover.
       const row = page.locator('tr').filter({ hasText: THERAPIST_NAME }).first();
       await row.hover();
-      await page.waitForTimeout(600);
+      await page.waitForTimeout(600); // TODO: replace with specific wait helper — intentional hover-reveal timing
 
       const clickPos = await page.evaluate((name: string) => {
         const rows = Array.from(document.querySelectorAll('tbody tr'));
@@ -227,12 +224,12 @@ test.describe.serial('Client Mental Health History — CRU', () => {
 
       if (clickPos) {
         await page.mouse.move(clickPos.x, clickPos.y);
-        await page.waitForTimeout(200);
+        await page.waitForTimeout(200); // TODO: replace with specific wait helper — mouse tracking guard
         await page.mouse.click(clickPos.x, clickPos.y);
       } else {
         await row.click({ force: true });
       }
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -248,7 +245,7 @@ test.describe.serial('Client Mental Health History — CRU', () => {
 
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
     },
@@ -270,7 +267,6 @@ test.describe.serial('Client Mental Health History — CRU', () => {
       if (await hospSection.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await hospSection.scrollIntoViewIfNeeded();
       }
-      await page.waitForTimeout(500);
 
       // Third "Add" button belongs to Psychiatric Hospitalization section
       const allAddBtns = page.getByRole('button', { name: /^add$/i });
@@ -284,7 +280,7 @@ test.describe.serial('Client Mental Health History — CRU', () => {
         test.skip();
         return;
       }
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -326,7 +322,7 @@ test.describe.serial('Client Mental Health History — CRU', () => {
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
     },

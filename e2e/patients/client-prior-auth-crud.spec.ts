@@ -1,5 +1,12 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForAnimation,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Prior Authorization CRUD Tests (Therapist Portal)
@@ -42,14 +49,7 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ test.describe.serial('Client Prior Authorization — CRUD', () => {
     await page.goto(`/app/client/${clientId}/payment/prior-authorization`);
     await expect(page).toHaveURL(/payment\/prior-authorization/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
   }
 
   /** Fill the Add/Edit Prior Authorization form inside an open dialog */
@@ -110,7 +110,6 @@ test.describe.serial('Client Prior Authorization — CRUD', () => {
     if (await startInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await startInput.fill(todayMDY());
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(300);
     }
 
     // End Date (required, min start_date)
@@ -119,7 +118,6 @@ test.describe.serial('Client Prior Authorization — CRUD', () => {
     if (await endInput.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await endInput.fill(tomorrowMDY());
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(300);
     }
   }
 
@@ -136,7 +134,7 @@ test.describe.serial('Client Prior Authorization — CRUD', () => {
         .or(page.getByRole('button', { name: /^add$/i }).first());
       await expect(addBtn.first()).toBeVisible({ timeout: 10_000 });
       await addBtn.first().click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -155,7 +153,7 @@ test.describe.serial('Client Prior Authorization — CRUD', () => {
         .first()
         .or(page.getByRole('button', { name: /^add$/i }).first());
       await addBtn.first().click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -165,7 +163,7 @@ test.describe.serial('Client Prior Authorization — CRUD', () => {
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
     },
@@ -194,12 +192,12 @@ test.describe.serial('Client Prior Authorization — CRUD', () => {
       const row = page.locator('table tbody tr').filter({ hasText: AUTH_NUM }).first();
       const menuBtn = row.locator('button').last();
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /^edit$/i }).first();
       await expect(editItem).toBeVisible({ timeout: 5_000 });
       await editItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -208,7 +206,7 @@ test.describe.serial('Client Prior Authorization — CRUD', () => {
 
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
       await expect(page.getByText(AUTH_UPD)).toBeVisible({ timeout: 10_000 });
@@ -223,7 +221,7 @@ test.describe.serial('Client Prior Authorization — CRUD', () => {
     async ({ page }) => {
       await goToPriorAuth(page);
       // Extra wait for table to fully render
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // Try updated number first, fall back to original
       let targetText = AUTH_UPD;
@@ -240,12 +238,12 @@ test.describe.serial('Client Prior Authorization — CRUD', () => {
       const row = page.locator('table tbody tr').filter({ hasText: targetText }).first();
       const menuBtn = row.locator('button').last();
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /^delete$/i }).first();
       await expect(deleteItem).toBeVisible({ timeout: 5_000 });
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       // DeleteConfirm dialog
       const confirmDialog = page.locator('[role="dialog"]').first();
@@ -256,7 +254,7 @@ test.describe.serial('Client Prior Authorization — CRUD', () => {
         .last();
       await expect(confirmBtn).toBeVisible({ timeout: 5_000 });
       await confirmBtn.click({ force: true });
-      await page.waitForTimeout(2_000);
+      await waitForDialogClose(page);
 
       // Row should be gone or a success notification should appear
       const rowGone = !(await page.locator('table tbody tr').filter({ hasText: targetText }).first().isVisible({ timeout: 3_000 }).catch(() => false));

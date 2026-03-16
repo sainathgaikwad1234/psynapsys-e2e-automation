@@ -1,4 +1,5 @@
 import { test, expect } from '../../support/merged-fixtures';
+import { waitForPageReady, waitForDropdownOptions, waitForNetworkIdle, waitForDialogOpen, waitForDialogClose } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Billing Functional Tests (Therapist Portal)
@@ -9,18 +10,18 @@ import { test, expect } from '../../support/merged-fixtures';
  *   - Charges: verify table columns (CPT code, amount, date)
  *   - Receipts / Payment History: verify list content
  *
- * Read-only — no claims are submitted, no invoices are created.
+ * Read-only -- no claims are submitted, no invoices are created.
  *
  * @tag @regression @billing @functional
  */
 
-// ── Claims ────────────────────────────────────────────────────────────────────
+// -- Claims --------------------------------------------------------------------
 
 test.describe('Billing — Claims', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app/billing/claims');
     await expect(page).toHaveURL(/\/app\/billing\/claims/, { timeout: 15_000 });
-    await page.waitForTimeout(2_000); // let data load
+    await waitForPageReady(page);
   });
 
   test(
@@ -61,13 +62,13 @@ test.describe('Billing — Claims', () => {
 
       if (await statusDropdown.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await statusDropdown.first().click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForDropdownOptions(page);
 
         // Select first available option
         const firstOption = page.locator('[role="option"]').first();
         if (await firstOption.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await firstOption.click({ force: true });
-          await page.waitForTimeout(1_500);
+          await waitForNetworkIdle(page);
         }
       }
 
@@ -82,7 +83,7 @@ test.describe('Billing — Claims', () => {
       const firstHeader = page.locator('table thead th').first();
       if (await firstHeader.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await firstHeader.click({ force: true });
-        await page.waitForTimeout(1_000);
+        await waitForNetworkIdle(page);
         await expect(page.locator('table').first()).toBeVisible({ timeout: 5_000 });
       }
     },
@@ -98,9 +99,9 @@ test.describe('Billing — Claims', () => {
 
       if (await batchBtn.first().isVisible({ timeout: 8_000 }).catch(() => false)) {
         await batchBtn.first().click({ force: true });
-        await page.waitForTimeout(1_500);
+        await waitForDialogOpen(page).catch(() => {});
 
-        // Dialog may open or action may trigger directly — close if it opened
+        // Dialog may open or action may trigger directly -- close if it opened
         const dialog = page.locator('[role="dialog"]').first();
         if (await dialog.isVisible({ timeout: 3_000 }).catch(() => false)) {
           const cancelBtn = page
@@ -120,7 +121,7 @@ test.describe('Billing — Claims', () => {
   );
 });
 
-// ── Invoices ──────────────────────────────────────────────────────────────────
+// -- Invoices ------------------------------------------------------------------
 
 test.describe('Billing — Invoices', () => {
   test(
@@ -144,8 +145,8 @@ test.describe('Billing — Invoices', () => {
       const firstRow = page.locator('table tbody tr').first();
       if (await firstRow.isVisible({ timeout: 10_000 }).catch(() => false)) {
         await firstRow.click({ force: true });
-        await page.waitForTimeout(1_500);
-        // Detail modal or navigation — just verify page is alive
+        await waitForNetworkIdle(page);
+        // Detail modal or navigation -- just verify page is alive
         await expect(page.locator('body')).toBeVisible();
       }
     },
@@ -157,7 +158,7 @@ test.describe('Billing — Invoices', () => {
       await page.goto('/app/billing/invoices');
       await expect(page).toHaveURL(/\/app\/billing\/invoices/, { timeout: 15_000 });
 
-      // Any interactive control qualifies — combobox, input, or action button
+      // Any interactive control qualifies -- combobox, input, or action button
       const anyControl = page
         .locator('input,select,[role="combobox"]')
         .first()
@@ -167,7 +168,7 @@ test.describe('Billing — Invoices', () => {
   );
 });
 
-// ── Charges ───────────────────────────────────────────────────────────────────
+// -- Charges -------------------------------------------------------------------
 
 test.describe('Billing — Charges', () => {
   test(
@@ -198,7 +199,7 @@ test.describe('Billing — Charges', () => {
   );
 });
 
-// ── ERA (Electronic Remittance Advice) ────────────────────────────────────────
+// -- ERA (Electronic Remittance Advice) ----------------------------------------
 
 test.describe('Billing — ERA', () => {
   test(
@@ -217,7 +218,7 @@ test.describe('Billing — ERA', () => {
   );
 });
 
-// ── Payment History ───────────────────────────────────────────────────────────
+// -- Payment History -----------------------------------------------------------
 
 test.describe('Billing — Payment History', () => {
   test(

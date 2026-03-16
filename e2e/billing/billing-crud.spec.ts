@@ -1,35 +1,35 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { waitForPageReady, waitForDialogOpen, waitForDialogClose, waitForDropdownOptions, waitForNetworkIdle } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Global Billing CRUD Tests (Therapist Portal)
  *
  * Covers action-menu interactions for all global billing sub-modules:
- *   - Charges      (/app/billing/charges)      — View details
- *   - Invoices     (/app/billing/invoices)      — Mark as Paid, Send Payment Link, View
- *   - Receipts     (/app/billing/receipts)      — View / Download
- *   - ERA          (/app/billing/ers)           — View ERA details, Post Payment
- *   - Batch Claims (/app/billing/batch-claims)  — Create batch, view status
+ *   - Charges      (/app/billing/charges)      -- View details
+ *   - Invoices     (/app/billing/invoices)      -- Mark as Paid, Send Payment Link, View
+ *   - Receipts     (/app/billing/receipts)      -- View / Download
+ *   - ERA          (/app/billing/ers)           -- View ERA details, Post Payment
+ *   - Batch Claims (/app/billing/batch-claims)  -- Create batch, view status
  *
- * Read-safe: no claims submitted, no payments processed — only UI interactions tested.
+ * Read-safe: no claims submitted, no payments processed -- only UI interactions tested.
  *
  * @tag @regression @billing @crud
  */
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// -- Helpers -------------------------------------------------------------------
 
 async function goToBilling(page: Page, sub: string): Promise<void> {
   await page.goto(`/app/billing/${sub}`);
   await expect(page).toHaveURL(new RegExp(`billing/${sub}`), { timeout: 15_000 });
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 }
 
-// ── Suite ─────────────────────────────────────────────────────────────────────
+// -- Suite ---------------------------------------------------------------------
 
 test.describe.serial('Global Billing — CRUD', () => {
 
-  // ── CHARGES ───────────────────────────────────────────────────────────────
+  // -- CHARGES -----------------------------------------------------------------
 
   test(
     'should display the Charges page @smoke',
@@ -96,7 +96,7 @@ test.describe.serial('Global Billing — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const hasView   = await page.getByRole('menuitem', { name: /view/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasEdit   = await page.getByRole('menuitem', { name: /edit/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
@@ -107,7 +107,7 @@ test.describe.serial('Global Billing — CRUD', () => {
     },
   );
 
-  // ── INVOICES ──────────────────────────────────────────────────────────────
+  // -- INVOICES ----------------------------------------------------------------
 
   test(
     'should display the global Invoices page @smoke',
@@ -151,7 +151,7 @@ test.describe.serial('Global Billing — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const hasMarkPaid    = await page.getByRole('menuitem', { name: /mark as paid/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasSendPayment = await page.getByRole('menuitem', { name: /send payment/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
@@ -182,7 +182,7 @@ test.describe.serial('Global Billing — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const viewItem = page.getByRole('menuitem', { name: /^view$/i }).first();
       if (!(await viewItem.isVisible({ timeout: 3_000 }).catch(() => false))) {
@@ -192,7 +192,7 @@ test.describe.serial('Global Billing — CRUD', () => {
       }
 
       await viewItem.click();
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       const isDialog = await dialog.isVisible({ timeout: 5_000 }).catch(() => false);
@@ -212,7 +212,7 @@ test.describe.serial('Global Billing — CRUD', () => {
     },
   );
 
-  // ── RECEIPTS ──────────────────────────────────────────────────────────────
+  // -- RECEIPTS ----------------------------------------------------------------
 
   test(
     'should display the Receipts page @smoke',
@@ -256,7 +256,7 @@ test.describe.serial('Global Billing — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const hasView     = await page.getByRole('menuitem', { name: /view/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasDownload = await page.getByRole('menuitem', { name: /download/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
@@ -267,7 +267,7 @@ test.describe.serial('Global Billing — CRUD', () => {
     },
   );
 
-  // ── ERA (Electronic Remittance Advice) ────────────────────────────────────
+  // -- ERA (Electronic Remittance Advice) --------------------------------------
 
   test(
     'should display the ERA page @smoke',
@@ -311,7 +311,7 @@ test.describe.serial('Global Billing — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const hasView        = await page.getByRole('menuitem', { name: /view/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasPostPayment = await page.getByRole('menuitem', { name: /post payment/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
@@ -345,7 +345,7 @@ test.describe.serial('Global Billing — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const viewItem = page.getByRole('menuitem', { name: /^view$/i }).first();
       if (!(await viewItem.isVisible({ timeout: 3_000 }).catch(() => false))) {
@@ -355,7 +355,7 @@ test.describe.serial('Global Billing — CRUD', () => {
       }
 
       await viewItem.click();
-      await page.waitForTimeout(1_000);
+      await waitForNetworkIdle(page);
 
       // ERA view may open in modal or navigate to detail page
       const dialog = page.locator('[role="dialog"]').first();
@@ -375,7 +375,7 @@ test.describe.serial('Global Billing — CRUD', () => {
     },
   );
 
-  // ── BATCH CLAIMS ──────────────────────────────────────────────────────────
+  // -- BATCH CLAIMS ------------------------------------------------------------
 
   test(
     'should display the Batch Claims page @smoke',
@@ -436,7 +436,7 @@ test.describe.serial('Global Billing — CRUD', () => {
       }
 
       await generateBtn.click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       if (await dialog.isVisible({ timeout: 5_000 }).catch(() => false)) {
@@ -472,7 +472,7 @@ test.describe.serial('Global Billing — CRUD', () => {
       }
 
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForDropdownOptions(page).catch(() => {});
 
       const hasView   = await page.getByRole('menuitem', { name: /view/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);
       const hasSubmit = await page.getByRole('menuitem', { name: /submit|send/i }).first().isVisible({ timeout: 3_000 }).catch(() => false);

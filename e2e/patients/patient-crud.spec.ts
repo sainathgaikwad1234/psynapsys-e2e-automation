@@ -1,4 +1,14 @@
 import { test, expect } from '../../support/merged-fixtures';
+import { type Page } from '@playwright/test';
+import { disableLoadingOverlay, selectFirstOption } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForAnimation,
+  waitForDropdownOptions,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForNetworkIdle,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Patient (Client) CRUD E2E Tests
@@ -45,52 +55,18 @@ const CITY           = 'Testville';
 const ZIP            = '90001';
 const FIXED_CHARGE   = '100';
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
-
-async function disableLoadingOverlay(page: any) {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el: Element) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
-
-/**
- * Click a Mantine Select / combobox and pick the first option.
- * Tries Mantine-specific [data-combobox-option] attribute first (safe — cannot
- * accidentally match wizard tabs or pagination buttons), then falls back to keyboard.
- * Overlay must be disabled first.
- */
-async function selectFirstOption(page: any, fieldLocator: any) {
-  const field = fieldLocator.first ? fieldLocator.first() : fieldLocator;
-  if (!(await field.isVisible({ timeout: 3_000 }).catch(() => false))) return;
-  await field.click({ force: true });
-  await page.waitForTimeout(600);
-  const mantineOpt = page.locator('[data-combobox-option]').first();
-  if (await mantineOpt.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await mantineOpt.click({ force: true });
-  } else {
-    // Keyboard fallback: ArrowDown highlights first option, Enter selects
-    await page.keyboard.press('ArrowDown');
-    await page.waitForTimeout(300);
-    await page.keyboard.press('Enter');
-  }
-  await page.waitForTimeout(300);
-}
-
 /**
  * Click through all remaining wizard tabs (Tab 2 → Tab 4) using "Save & Next",
  * then click the final submit button. Used during Edit flow where Tab 1 data
  * has already been updated.
  */
-async function advanceThroughRemainingTabs(page: any) {
+async function advanceThroughRemainingTabs(page: Page) {
   // Each click of "Save & Next" advances one tab; 3 clicks brings us to Tab 4
   for (let i = 0; i < 3; i++) {
     const nextBtn = page.getByRole('button', { name: /save.*next|next/i }).first();
     if (await nextBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
       await nextBtn.click();
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
     }
   }
   // Final submit button on Tab 4
@@ -99,7 +75,7 @@ async function advanceThroughRemainingTabs(page: any) {
     .last();
   if (await submitBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
     await submitBtn.click();
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 }
 
@@ -122,7 +98,7 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
         .first();
       await expect(addBtn).toBeVisible({ timeout: 10_000 });
       await addBtn.click();
-      await page.waitForTimeout(1_000);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       // ── TAB 1: CLIENT INFORMATION ──────────────────────────────────────────
@@ -141,7 +117,7 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
       // Programmatically blur the DOB input to close the calendar popup
       // (clicking headings or other elements may not reliably close the picker)
       await dobInput.first().evaluate((el: HTMLElement) => el.blur());
-      await page.waitForTimeout(1_200); // wait for calendar animation to fully finish
+      await waitForAnimation(page.locator('body')); // wait for calendar animation to fully finish
 
       // Helper: click a Mantine Select combobox and pick its first option.
       // Tries data-combobox-option (Mantine v8 specific attribute) first so it cannot
@@ -152,7 +128,7 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
         await disableLoadingOverlay(page);
         await inp.scrollIntoViewIfNeeded();
         await inp.click({ force: true });
-        await page.waitForTimeout(800); // wait for dropdown animation
+        await waitForDropdownOptions(page).catch(() => {}); // wait for dropdown options
         // Mantine v8 options have data-combobox-option; only rendered when dropdown is open
         const mantineOpt = page.locator('[data-combobox-option]').first();
         if (await mantineOpt.isVisible({ timeout: 3_000 }).catch(() => false)) {
@@ -160,10 +136,10 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
         } else {
           // Keyboard fallback: ArrowDown moves to first option, Enter selects
           await page.keyboard.press('ArrowDown');
-          await page.waitForTimeout(400);
+          await waitForAnimation(page.locator('body'));
           await page.keyboard.press('Enter');
         }
-        await page.waitForTimeout(500);
+        await waitForAnimation(page.locator('body'));
       };
 
       // Legal Sex (required Mantine Select) — wait extra after it since it's right after DOB
@@ -199,7 +175,7 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
 
       // Save & Next → Tab 2
       await page.getByRole('button', { name: /save.*next|next/i }).first().click();
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // ── TAB 2: CONTACT INFORMATION ─────────────────────────────────────────
 
@@ -235,7 +211,7 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
       // State (label="State", placeholder="Select State")
       await disableLoadingOverlay(page);
       await selectFirstOption(page, page.getByPlaceholder('Select State').first());
-      await page.waitForTimeout(1_500); // wait for county API call
+      await waitForNetworkIdle(page); // wait for county API call
 
       // Zip Code (label="Zip Code", placeholder="Enter Zip Code")
       await page.getByLabel('Zip Code').first().fill(ZIP);
@@ -246,21 +222,20 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
         .or(page.getByPlaceholder(/select.*county|create county/i).first());
       if (await countyField.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await countyField.first().click({ force: true });
-        await page.waitForTimeout(1_000); // wait for API-loaded county options
+        await waitForDropdownOptions(page).catch(() => {}); // wait for API-loaded county options
         const countyOpt = page.locator('[data-combobox-option]').first();
         if (await countyOpt.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await countyOpt.click({ force: true });
         } else {
           await page.keyboard.press('ArrowDown');
-          await page.waitForTimeout(300);
+          await waitForAnimation(page.locator('body'));
           await page.keyboard.press('Enter');
         }
-        await page.waitForTimeout(300);
       }
 
       // Save & Next → Tab 3
       await page.getByRole('button', { name: /save.*next|next/i }).first().click();
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // ── TAB 3: PAYMENT INFORMATION ─────────────────────────────────────────
 
@@ -273,7 +248,6 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
         if (!(await selfRadio.first().isChecked().catch(() => false))) {
           await selfRadio.first().click({ force: true });
         }
-        await page.waitForTimeout(500);
       }
 
       // Fixed Charges (label="Fixed Charges", placeholder="Enter Fixed Charges", NumberInput)
@@ -285,7 +259,7 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
 
       // Save & Next → Tab 4
       await page.getByRole('button', { name: /save.*next|next/i }).first().click();
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // ── TAB 4: OTHER ──────────────────────────────────────────────────────
 
@@ -305,9 +279,8 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
         .or(page.getByPlaceholder(/select forms/i).first());
       if (await formsField.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await formsField.first().click({ force: true });
-        await page.waitForTimeout(600);
+        await waitForDropdownOptions(page).catch(() => {});
         await page.keyboard.press('ArrowDown');
-        await page.waitForTimeout(300);
         const firstForm = page.locator('[data-combobox-option]').first()
           .or(page.locator('[role="option"]:visible').first());
         if (await firstForm.isVisible({ timeout: 2_000 }).catch(() => false)) {
@@ -316,7 +289,6 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
           await page.keyboard.press('Enter');
         }
         await page.keyboard.press('Tab');
-        await page.waitForTimeout(300);
       }
 
       // Submit — final button on Tab 4
@@ -327,7 +299,7 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
       await submitBtn.click();
 
       // Wait for success — modal closes or redirect occurs
-      await page.waitForTimeout(3_000);
+      await waitForDialogClose(page);
 
       // Verify form is no longer visible (closed on success)
       const modal = page.locator('[role="dialog"]').first();
@@ -349,7 +321,7 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
         .or(page.getByRole('searchbox').first());
       await expect(searchInput.first()).toBeVisible({ timeout: 10_000 });
       await searchInput.first().fill(LAST_NAME);
-      await page.waitForTimeout(1_500);
+      await waitForNetworkIdle(page);
 
       // Patient row should appear
       await expect(page.getByText(LAST_NAME).first()).toBeVisible({ timeout: 15_000 });
@@ -367,7 +339,7 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
         .or(page.getByRole('searchbox').first());
       if (await searchInput.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.first().fill(LAST_NAME);
-        await page.waitForTimeout(1_500);
+        await waitForNetworkIdle(page);
       }
 
       // Click the name cell (column 1) to navigate to client dashboard
@@ -396,7 +368,7 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
         .or(page.getByRole('searchbox').first());
       if (await searchInput.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.first().fill(LAST_NAME);
-        await page.waitForTimeout(1_500);
+        await waitForNetworkIdle(page);
       }
 
       await expect(page.getByText(LAST_NAME).first()).toBeVisible({ timeout: 10_000 });
@@ -407,12 +379,12 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
         .first();
       const actionBtn = clientRow.locator('button').last();
       await actionBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /^edit$/i }).first();
       await expect(editItem).toBeVisible({ timeout: 5_000 });
       await editItem.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogOpen(page);
 
       // Edit Client modal opens — Tab 1 (Client Info) is shown with pre-filled data
       await disableLoadingOverlay(page);
@@ -446,7 +418,7 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
         .or(page.getByRole('searchbox').first());
       if (await searchInput.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.first().fill(LAST_NAME);
-        await page.waitForTimeout(1_500);
+        await waitForNetworkIdle(page);
       }
 
       await expect(page.getByText(LAST_NAME).first()).toBeVisible({ timeout: 10_000 });
@@ -457,12 +429,12 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
         .first();
       const actionBtn = clientRow.locator('button').last();
       await actionBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /^delete$/i }).first();
       await expect(deleteItem).toBeVisible({ timeout: 5_000 });
       await deleteItem.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForDialogOpen(page);
 
       // Confirm Deletion modal (title: "Confirm Deletion")
       const confirmBtn = page
@@ -471,12 +443,12 @@ test.describe.serial('Patients — Create / Read / Update / Delete', () => {
       if (await confirmBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await confirmBtn.click();
       }
-      await page.waitForTimeout(2_000);
+      await waitForDialogClose(page);
 
       // Cleared search — patient must not appear in active list
       await searchInput.first().clear();
       await searchInput.first().fill(LAST_NAME);
-      await page.waitForTimeout(1_500);
+      await waitForNetworkIdle(page);
 
       await expect(
         page.getByText(LAST_NAME).first(),

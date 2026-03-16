@@ -1,4 +1,5 @@
 import { test, expect } from '../../support/merged-fixtures';
+import { waitForPageReady, waitForNetworkIdle } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Forgot Password Flow Tests
@@ -11,7 +12,7 @@ import { test, expect } from '../../support/merged-fixtures';
  *   - Success confirmation message
  *   - Back to login link
  *
- * Note: Actual email/token delivery not tested — only UI flow.
+ * Note: Actual email/token delivery not tested -- only UI flow.
  *
  * @tag @regression @auth @forgot-password
  */
@@ -21,7 +22,7 @@ test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('Forgot Password — Flow', () => {
 
-  // ── NAVIGATION ────────────────────────────────────────────────────────────
+  // -- NAVIGATION --------------------------------------------------------------
 
   test(
     'should display the Forgot Password page @smoke',
@@ -29,8 +30,7 @@ test.describe('Forgot Password — Flow', () => {
     async ({ page }) => {
       await page.goto('/auth/forgot-password');
       await expect(page).toHaveURL(/forgot-password/, { timeout: 15_000 });
-      await page.waitForLoadState('networkidle').catch(() => {});
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const heading = page.getByText(/forgot password|reset password/i).first();
       await expect(heading).toBeVisible({ timeout: 10_000 });
@@ -43,7 +43,7 @@ test.describe('Forgot Password — Flow', () => {
     async ({ page }) => {
       await page.goto('/auth/forgot-password');
       await expect(page).toHaveURL(/forgot-password/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const emailInput = page
         .getByLabel(/email/i)
@@ -61,7 +61,7 @@ test.describe('Forgot Password — Flow', () => {
     async ({ page }) => {
       await page.goto('/auth/forgot-password');
       await expect(page).toHaveURL(/forgot-password/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const submitBtn = page
         .getByRole('button', { name: /send|submit|reset|get link/i })
@@ -77,7 +77,7 @@ test.describe('Forgot Password — Flow', () => {
     async ({ page }) => {
       await page.goto('/auth/login');
       await expect(page).toHaveURL(/\/auth\/login/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const forgotLink = page
         .getByRole('link', { name: /forgot password|forgot your password/i })
@@ -86,16 +86,16 @@ test.describe('Forgot Password — Flow', () => {
 
       if (await forgotLink.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await forgotLink.click({ force: true });
-        await page.waitForTimeout(1_000);
+        await waitForNetworkIdle(page);
         await expect(page).toHaveURL(/forgot-password/, { timeout: 10_000 });
       } else {
-        // Forgot password link may be placed differently — just verify login page has it
+        // Forgot password link may be placed differently -- just verify login page has it
         await expect(page.locator('body')).toBeVisible();
       }
     },
   );
 
-  // ── FORM SUBMISSION ───────────────────────────────────────────────────────
+  // -- FORM SUBMISSION ---------------------------------------------------------
 
   test(
     'should submit email and show confirmation or error @smoke',
@@ -104,7 +104,7 @@ test.describe('Forgot Password — Flow', () => {
       test.setTimeout(60_000);
       await page.goto('/auth/forgot-password');
       await expect(page).toHaveURL(/forgot-password/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const emailInput = page
         .getByLabel(/email/i)
@@ -118,7 +118,6 @@ test.describe('Forgot Password — Flow', () => {
       }
 
       await emailInput.fill('sahil.padole+123@thinkitive.com');
-      await page.waitForTimeout(300);
 
       const submitBtn = page
         .getByRole('button', { name: /send|submit|reset|get link/i })
@@ -130,7 +129,7 @@ test.describe('Forgot Password — Flow', () => {
       }
 
       await submitBtn.click({ force: true });
-      await page.waitForTimeout(3_000);
+      await waitForNetworkIdle(page);
 
       // Expect success message or stay on page (email sent confirmation)
       const hasSuccess = await page
@@ -145,7 +144,7 @@ test.describe('Forgot Password — Flow', () => {
         .isVisible({ timeout: 3_000 })
         .catch(() => false);
 
-      // Either a success message or API error is expected — page should remain functional
+      // Either a success message or API error is expected -- page should remain functional
       await expect(page.locator('body')).toBeVisible();
       if (hasSuccess || hasError) {
         expect(true).toBe(true);
@@ -159,7 +158,7 @@ test.describe('Forgot Password — Flow', () => {
     async ({ page }) => {
       await page.goto('/auth/forgot-password');
       await expect(page).toHaveURL(/forgot-password/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const emailInput = page
         .getByLabel(/email/i)
@@ -180,7 +179,7 @@ test.describe('Forgot Password — Flow', () => {
 
       if (await submitBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await submitBtn.click({ force: true });
-        await page.waitForTimeout(1_000);
+        await waitForNetworkIdle(page);
       }
 
       // HTML5 or custom validation should prevent submission with invalid email
@@ -203,7 +202,7 @@ test.describe('Forgot Password — Flow', () => {
     async ({ page }) => {
       await page.goto('/auth/forgot-password');
       await expect(page).toHaveURL(/forgot-password/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const backLink = page
         .getByRole('link', { name: /back.*login|sign in|login/i })
@@ -215,7 +214,7 @@ test.describe('Forgot Password — Flow', () => {
       await expect(page.locator('body')).toBeVisible();
       if (hasBack) {
         await backLink.click({ force: true });
-        await page.waitForTimeout(800);
+        await waitForNetworkIdle(page);
         const isOnLogin = page.url().includes('login');
         if (isOnLogin) {
           await expect(page).toHaveURL(/login/, { timeout: 5_000 });

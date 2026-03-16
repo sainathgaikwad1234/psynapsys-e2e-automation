@@ -1,5 +1,11 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Surgical History CRU Tests (Therapist Portal)
@@ -27,14 +33,7 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
 
@@ -51,7 +50,7 @@ test.describe.serial('Client Surgical History — CRU', () => {
   async function goToSurgical(page: Page): Promise<void> {
     await page.goto(`/app/client/${clientId}/biopsychosocial_history/surgical-history`);
     await expect(page).toHaveURL(/biopsychosocial_history\/surgical-history/, { timeout: 15_000 });
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
   }
 
   // ── CREATE ──────────────────────────────────────────────────────────────────
@@ -64,7 +63,7 @@ test.describe.serial('Client Surgical History — CRU', () => {
       const addBtn = page.getByRole('button', { name: /^add$/i }).first();
       await expect(addBtn).toBeVisible({ timeout: 10_000 });
       await addBtn.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -79,7 +78,7 @@ test.describe.serial('Client Surgical History — CRU', () => {
       await goToSurgical(page);
 
       await page.getByRole('button', { name: /^add$/i }).first().click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -112,7 +111,7 @@ test.describe.serial('Client Surgical History — CRU', () => {
       const submitBtn = dialog.getByRole('button', { name: /^add$|^save$/i }).last();
       await expect(submitBtn).toBeVisible({ timeout: 5_000 });
       await submitBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
     },
@@ -143,7 +142,7 @@ test.describe.serial('Client Surgical History — CRU', () => {
       // 3. Click at those coordinates.
       const row = page.locator('tr').filter({ hasText: SURGERY_NAME }).first();
       await row.hover();
-      await page.waitForTimeout(600);
+      await page.waitForTimeout(600); // TODO: replace with specific wait helper — intentional hover-reveal timing
 
       const clickPos = await page.evaluate((name: string) => {
         const rows = Array.from(document.querySelectorAll('tbody tr'));
@@ -167,12 +166,12 @@ test.describe.serial('Client Surgical History — CRU', () => {
 
       if (clickPos) {
         await page.mouse.move(clickPos.x, clickPos.y);
-        await page.waitForTimeout(200);
+        await page.waitForTimeout(200); // TODO: replace with specific wait helper — mouse tracking guard
         await page.mouse.click(clickPos.x, clickPos.y);
       } else {
         await row.click({ force: true });
       }
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -187,7 +186,7 @@ test.describe.serial('Client Surgical History — CRU', () => {
 
       const submitBtn = dialog.getByRole('button', { name: /^add$|^save$|^update$/i }).last();
       await submitBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
       await expect(page.getByText(SURGERY_UPDATED)).toBeVisible({ timeout: 10_000 });

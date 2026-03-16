@@ -1,8 +1,16 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay, selectFirstOption } from '../../support/helpers/mantine-helpers';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForAnimation,
+  waitForDropdownOptions,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Documents CRUD Tests (Therapist Portal)
@@ -32,29 +40,6 @@ async function resolveClientId(page: Page): Promise<string> {
   const firstIdCell = page.locator('table tbody tr').first().locator('td').first();
   await expect(firstIdCell).toHaveText(/^\d+$/, { timeout: 20_000 });
   return (await firstIdCell.innerText()).trim();
-}
-
-/** Disable Mantine LoadingOverlay so form fields are clickable */
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
-
-/** Click a Mantine Select combobox and pick the first option */
-async function selectFirstOption(page: Page, locator: any): Promise<void> {
-  const el = locator.first ? locator.first() : locator;
-  if (!(await el.isVisible({ timeout: 2_000 }).catch(() => false))) return;
-  await el.click({ force: true });
-  await page.waitForTimeout(500);
-  const opt = page.getByRole('option').first();
-  if (await opt.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await opt.click({ force: true });
-    await page.waitForTimeout(300);
-  }
 }
 
 /**
@@ -99,14 +84,14 @@ test.describe.serial('Client Documents — CRUD', () => {
     async ({ page }) => {
       await page.goto(`/app/client/${clientId}/records/client-records`);
       await expect(page).toHaveURL(/records\/client-records/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const uploadBtn = page
         .getByRole('button', { name: /upload|add document|new document/i })
         .first();
       await expect(uploadBtn).toBeVisible({ timeout: 10_000 });
       await uploadBtn.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -119,13 +104,13 @@ test.describe.serial('Client Documents — CRUD', () => {
     async ({ page }) => {
       await page.goto(`/app/client/${clientId}/records/client-records`);
       await expect(page).toHaveURL(/records\/client-records/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const uploadBtn = page
         .getByRole('button', { name: /upload|add document|new document/i })
         .first();
       await uploadBtn.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -160,13 +145,13 @@ test.describe.serial('Client Documents — CRUD', () => {
           }
         }
       }
-      await page.waitForTimeout(1_000);
+      await waitForAnimation(dialog.locator('body').first().or(dialog.locator('[class*="file"]').first()));
 
       // Save
       const saveBtn = dialog.getByRole('button', { name: /^save$|^upload$/i }).last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(2_000);
+      await waitForDialogClose(page);
 
       // Modal should close
       await expect(dialog).toBeHidden({ timeout: 12_000 });
@@ -180,7 +165,7 @@ test.describe.serial('Client Documents — CRUD', () => {
     async ({ page }) => {
       await page.goto(`/app/client/${clientId}/records/client-records`);
       await expect(page).toHaveURL(/records\/client-records/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // Search for the document
       const search = page
@@ -189,7 +174,7 @@ test.describe.serial('Client Documents — CRUD', () => {
         .or(page.getByPlaceholder(/search/i).first());
       if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await search.first().fill(DOC_NAME);
-        await page.waitForTimeout(1_200);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(DOC_NAME)).toBeVisible({ timeout: 10_000 });
@@ -204,7 +189,7 @@ test.describe.serial('Client Documents — CRUD', () => {
     async ({ page }) => {
       await page.goto(`/app/client/${clientId}/records/client-records`);
       await expect(page).toHaveURL(/records\/client-records/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // Search for the document
       const search = page
@@ -213,7 +198,7 @@ test.describe.serial('Client Documents — CRUD', () => {
         .or(page.getByPlaceholder(/search/i).first());
       if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await search.first().fill(DOC_NAME);
-        await page.waitForTimeout(1_200);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       const row = page.locator('table tbody tr').filter({ hasText: DOC_NAME }).first();
@@ -225,7 +210,7 @@ test.describe.serial('Client Documents — CRUD', () => {
       // Open action menu
       const menuBtn = row.locator('button').last();
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /^edit$/i }).first();
       if (!(await editItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -235,7 +220,7 @@ test.describe.serial('Client Documents — CRUD', () => {
         return;
       }
       await editItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -250,7 +235,7 @@ test.describe.serial('Client Documents — CRUD', () => {
 
       const saveBtn = dialog.getByRole('button', { name: /^save$|^update$/i }).last();
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
       await expect(page.getByText(DOC_UPDATED)).toBeVisible({ timeout: 10_000 });
@@ -265,7 +250,7 @@ test.describe.serial('Client Documents — CRUD', () => {
     async ({ page }) => {
       await page.goto(`/app/client/${clientId}/records/client-records`);
       await expect(page).toHaveURL(/records\/client-records/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // Search for the document (try updated name first, fall back to original)
       const search = page
@@ -276,12 +261,12 @@ test.describe.serial('Client Documents — CRUD', () => {
       let targetName = DOC_UPDATED;
       if (await search.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await search.first().fill(DOC_UPDATED);
-        await page.waitForTimeout(1_200);
+        await waitForDropdownOptions(page).catch(() => {});
         if (!(await page.getByText(DOC_UPDATED).isVisible({ timeout: 3_000 }).catch(() => false))) {
           await search.first().clear();
           await search.first().fill(DOC_NAME);
           targetName = DOC_NAME;
-          await page.waitForTimeout(1_200);
+          await waitForDropdownOptions(page).catch(() => {});
         }
       }
 
@@ -293,7 +278,7 @@ test.describe.serial('Client Documents — CRUD', () => {
 
       const menuBtn = row.locator('button').last();
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /^delete$/i }).first();
       if (!(await deleteItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -302,7 +287,7 @@ test.describe.serial('Client Documents — CRUD', () => {
         return;
       }
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       // Confirm deletion dialog
       const confirmDialog = page.locator('[role="dialog"]').first();
@@ -311,7 +296,7 @@ test.describe.serial('Client Documents — CRUD', () => {
           .getByRole('button', { name: /^delete$|confirm/i })
           .last();
         await confirmBtn.click({ force: true });
-        await page.waitForTimeout(1_500);
+        await waitForDialogClose(page);
       }
 
       await expect(page.getByText(targetName)).not.toBeVisible({ timeout: 10_000 });

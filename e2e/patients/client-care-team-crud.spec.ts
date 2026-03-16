@@ -1,5 +1,13 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import {
+  waitForPageReady,
+  waitForDialogOpen,
+  waitForDialogClose,
+  waitForAnimation,
+  waitForDropdownOptions,
+} from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Client Care Team (Assigned Therapist) CRUD Tests (Therapist Portal)
@@ -23,15 +31,6 @@ async function resolveClientId(page: Page): Promise<string> {
   return (await firstIdCell.innerText()).trim();
 }
 
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
-
 // ── Suite ─────────────────────────────────────────────────────────────────────
 
 test.describe.serial('Client Care Team — Assign Therapist', () => {
@@ -49,7 +48,7 @@ test.describe.serial('Client Care Team — Assign Therapist', () => {
     await expect(page).toHaveURL(/\/app\/client\/\d+\/profile/, { timeout: 15_000 });
     // Wait for the profile page content to fully load before interacting
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(2_000);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -91,7 +90,7 @@ test.describe.serial('Client Care Team — Assign Therapist', () => {
 
       await expect(addBtn.first()).toBeVisible({ timeout: 10_000 });
       await addBtn.first().click({ force: true });
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -119,7 +118,7 @@ test.describe.serial('Client Care Team — Assign Therapist', () => {
         return;
       }
       await addBtn.click({ force: true });
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -129,21 +128,20 @@ test.describe.serial('Client Care Team — Assign Therapist', () => {
       const assignInput = dialog.locator('input[placeholder*="Select Therapists"]');
       await assignInput.waitFor({ state: 'visible', timeout: 8_000 });
       await assignInput.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(200);
 
       // Click to open the dropdown
       await assignInput.click();
-      await page.waitForTimeout(300);
+      await waitForAnimation(page.locator('body')); // dropdown open guard
 
       // pressSequentially triggers all keyboard events Mantine needs for onChange search
       await assignInput.pressSequentially('a', { delay: 50 });
-      await page.waitForTimeout(2_500);
+      await waitForDropdownOptions(page).catch(() => {}); // API search response
 
       // Pick the first visible [role="option"]
       const firstOpt = page.getByRole('option').first();
       if (await firstOpt.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await firstOpt.click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForAnimation(page.locator('body')); // chip render guard
       } else {
         // Fallback: invoke React event handlers directly on the first option element
         await page.evaluate(() => {
@@ -161,19 +159,19 @@ test.describe.serial('Client Care Team — Assign Therapist', () => {
           props.onMouseDown?.(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
           props.onClick?.(new MouseEvent('click', { bubbles: true, cancelable: true }));
         });
-        await page.waitForTimeout(500);
+        await waitForAnimation(page.locator('body')); // chip render guard
       }
 
       // Tab closes the dropdown (blur → combobox.closeDropdown) while preserving the chip.
       // Do NOT use Escape — it closes the entire modal.
       await page.keyboard.press('Tab');
-      await page.waitForTimeout(400);
+      await waitForAnimation(page.locator('body')); // dropdown close guard
 
       // Dropdown is now closed — Save button is accessible
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(3_000);
+      await waitForDialogClose(page);
 
       // Accept dialog closed (success) OR dialog still open (backend/server error is OK)
       const dialogHidden = await dialog.isHidden().catch(() => false);

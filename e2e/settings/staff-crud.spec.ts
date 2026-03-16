@@ -1,5 +1,7 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import { waitForPageReady, waitForDialogOpen, waitForAnimation } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — Staff Management CRUD Tests (Therapist Portal)
@@ -12,15 +14,7 @@ import { type Page } from '@playwright/test';
  */
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function disableLoadingOverlay(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 // ── Test Data ─────────────────────────────────────────────────────────────────
 
@@ -38,7 +32,7 @@ test.describe.serial('Staff Management — CRUD', () => {
     await page.goto('/app/setting/staff-setting');
     await expect(page).toHaveURL(/staff-setting/, { timeout: 15_000 });
     await page.waitForLoadState('networkidle').catch(() => {});
-    await page.waitForTimeout(1_500);
+    await waitForPageReady(page);
   }
 
   // ── READ ─────────────────────────────────────────────────────────────────
@@ -89,7 +83,7 @@ test.describe.serial('Staff Management — CRUD', () => {
         return;
       }
       await addBtn.first().click({ force: true });
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -113,7 +107,7 @@ test.describe.serial('Staff Management — CRUD', () => {
         return;
       }
       await addBtn.first().click({ force: true });
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -127,7 +121,6 @@ test.describe.serial('Staff Management — CRUD', () => {
       if (await firstNameInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await firstNameInput.first().click({ force: true });
         await firstNameInput.first().fill(STAFF_FIRST);
-        await page.waitForTimeout(200);
       }
 
       // Last Name
@@ -138,7 +131,6 @@ test.describe.serial('Staff Management — CRUD', () => {
       if (await lastNameInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await lastNameInput.first().click({ force: true });
         await lastNameInput.first().fill(STAFF_LAST);
-        await page.waitForTimeout(200);
       }
 
       // Email
@@ -149,7 +141,6 @@ test.describe.serial('Staff Management — CRUD', () => {
       if (await emailInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await emailInput.first().click({ force: true });
         await emailInput.first().fill(STAFF_EMAIL);
-        await page.waitForTimeout(200);
       }
 
       // Role — select first available option
@@ -159,13 +150,12 @@ test.describe.serial('Staff Management — CRUD', () => {
         .or(dialog.getByLabel(/role/i).first());
       if (await roleInput.first().isVisible({ timeout: 3_000 }).catch(() => false)) {
         await roleInput.first().click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForAnimation(page.locator('[role="option"]').first());
         const roleOpt = page.getByRole('option').first();
         if (await roleOpt.isVisible({ timeout: 3_000 }).catch(() => false)) {
           await roleOpt.click({ force: true });
         }
         await page.keyboard.press('Tab');
-        await page.waitForTimeout(300);
       }
 
       // Submit
@@ -173,7 +163,7 @@ test.describe.serial('Staff Management — CRUD', () => {
       const saveBtn = dialog.getByRole('button', { name: /^save$|^invite$|^add$|^submit$/i }).last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(3_000);
+      await waitForPageReady(page);
 
       const dialogHidden = await dialog.isHidden({ timeout: 8_000 }).catch(() => false);
       if (!dialogHidden) {
@@ -204,7 +194,7 @@ test.describe.serial('Staff Management — CRUD', () => {
       // Click action menu or Edit button on first row
       const menuBtn = firstRow.locator('button').last();
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const editItem = page.getByRole('menuitem', { name: /edit/i }).first();
       if (!(await editItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -212,11 +202,11 @@ test.describe.serial('Staff Management — CRUD', () => {
         return;
       }
       await editItem.click();
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
       await disableLoadingOverlay(page);
 
       // Update Last Name
@@ -227,7 +217,6 @@ test.describe.serial('Staff Management — CRUD', () => {
       if (await lastNameInput.first().isVisible({ timeout: 5_000 }).catch(() => false)) {
         await lastNameInput.first().click({ force: true });
         await lastNameInput.first().fill(UPDATED_LAST);
-        await page.waitForTimeout(200);
       }
 
       await disableLoadingOverlay(page);
@@ -241,7 +230,7 @@ test.describe.serial('Staff Management — CRUD', () => {
 
       await saveBtn.click({ force: true });
       const resp = await apiResp;
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       if (resp && resp.status() >= 400) {
         const cancelBtn = dialog.getByRole('button', { name: /cancel/i }).first();
@@ -282,7 +271,7 @@ test.describe.serial('Staff Management — CRUD', () => {
       const lastRow = rows.last();
       const menuBtn = lastRow.locator('button').last();
       await menuBtn.click({ force: true });
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 
       const deleteItem = page.getByRole('menuitem', { name: /delete|deactivate|remove/i }).first();
       if (!(await deleteItem.isVisible({ timeout: 5_000 }).catch(() => false))) {
@@ -290,7 +279,7 @@ test.describe.serial('Staff Management — CRUD', () => {
         return;
       }
       await deleteItem.click();
-      await page.waitForTimeout(600);
+      await waitForAnimation(page.locator('[role="dialog"]').first());
 
       const confirmModal = page.locator('[role="dialog"]').first();
       await expect(confirmModal).toBeVisible({ timeout: 8_000 });
@@ -305,7 +294,7 @@ test.describe.serial('Staff Management — CRUD', () => {
         .waitFor({ state: 'hidden', timeout: 8_000 })
         .then(() => true)
         .catch(() => false);
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       if (!dialogClosed) {
         // API may have blocked deletion (protected record / permission) — cancel gracefully

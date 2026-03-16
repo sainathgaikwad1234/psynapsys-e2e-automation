@@ -1,5 +1,6 @@
 import { test, expect } from '../../support/merged-fixtures';
 import { type Page } from '@playwright/test';
+import { waitForPageReady, waitForDialogOpen, waitForAnimation } from '../../support/helpers/wait-helpers';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -25,7 +26,7 @@ async function goToProfile(page: Page): Promise<void> {
   await page.goto('/app/setting/profile');
   await expect(page).toHaveURL(/setting\/profile/, { timeout: 15_000 });
   await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForTimeout(2_000);
+  await waitForPageReady(page);
 }
 
 function createTempPng(): string {
@@ -113,7 +114,7 @@ test.describe.serial('Profile Settings — CRUD', () => {
       const editBtn = page.getByRole('button', { name: /^edit$|edit profile|edit info/i }).first();
       if (await editBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await editBtn.click({ force: true });
-        await page.waitForTimeout(800);
+        await waitForAnimation(page.locator('input').first());
       }
 
       // Try to find and update phone or bio field (safe to change)
@@ -123,7 +124,6 @@ test.describe.serial('Profile Settings — CRUD', () => {
         await phoneInput.selectAll?.();
         await page.keyboard.press('Control+a');
         await phoneInput.fill('555-000-0001');
-        await page.waitForTimeout(300);
         await expect(page.locator('body')).toBeVisible();
       } else {
         await expect(page.locator('body')).toBeVisible();
@@ -140,7 +140,7 @@ test.describe.serial('Profile Settings — CRUD', () => {
       const editBtn = page.getByRole('button', { name: /^edit$|edit profile/i }).first();
       if (await editBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await editBtn.click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForAnimation(page.locator('input').first());
       }
 
       const saveBtn = page.getByRole('button', { name: /save|update|submit/i }).first();
@@ -165,7 +165,7 @@ test.describe.serial('Profile Settings — CRUD', () => {
       const editBtn = page.getByRole('button', { name: /^edit$|edit profile|edit photo|change photo|upload/i }).first();
       if (await editBtn.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await editBtn.click({ force: true });
-        await page.waitForTimeout(500);
+        await waitForAnimation(page.locator('input[type="file"]').first());
       }
 
       const fileInput = page.locator('input[type="file"]').first();
@@ -178,7 +178,7 @@ test.describe.serial('Profile Settings — CRUD', () => {
       const tmpFile = createTempPng();
       try {
         await fileInput.setInputFiles(tmpFile);
-        await page.waitForTimeout(1_500);
+        await waitForPageReady(page);
         await expect(page.locator('body')).toBeVisible();
       } finally {
         fs.unlinkSync(tmpFile);
@@ -229,7 +229,7 @@ test.describe.serial('Profile Settings — CRUD', () => {
       }
 
       await changeBtn.click({ force: true });
-      await page.waitForTimeout(800);
+      await waitForDialogOpen(page).catch(() => {});
 
       const dialog = page.locator('[role="dialog"]').first();
       if (await dialog.isVisible({ timeout: 5_000 }).catch(() => false)) {

@@ -1,4 +1,6 @@
 import { test, expect } from '../../support/merged-fixtures';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import { waitForPageReady, waitForDialogOpen, waitForDialogClose, waitForAnimation } from '../../support/helpers/wait-helpers';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
@@ -19,15 +21,7 @@ const CONFIG_TITLE    = `E2E Print ${TS.toString().slice(-6)}`;
 const CONFIG_UPDATED  = `${CONFIG_TITLE} Upd`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function disableLoadingOverlay(page: any): Promise<void> {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el: Element) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 /**
  * Create a minimal valid PNG file in the OS temp directory for upload testing.
@@ -67,14 +61,14 @@ test.describe.serial('Settings — Print Configuration CRUD', () => {
     async ({ page }) => {
       await page.goto(ROUTE);
       await expect(page).toHaveURL(/\/app\/setting\/print-configuration/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const addBtn = page
         .getByRole('button', { name: /add print configuration|add print config/i })
         .first();
       await expect(addBtn).toBeVisible({ timeout: 10_000 });
       await addBtn.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -90,13 +84,13 @@ test.describe.serial('Settings — Print Configuration CRUD', () => {
     async ({ page }) => {
       await page.goto(ROUTE);
       await expect(page).toHaveURL(/\/app\/setting\/print-configuration/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const addBtn = page
         .getByRole('button', { name: /add print configuration|add print config/i })
         .first();
       await addBtn.click();
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -136,13 +130,14 @@ test.describe.serial('Settings — Print Configuration CRUD', () => {
           await fileInput.setInputFiles(tmpPngPath);
         }
       }
-      await page.waitForTimeout(2_500); // wait for async base64 conversion in the component
+      // TODO: replace with specific wait helper — waiting for async base64 conversion in the component
+      await page.waitForTimeout(2_500);
 
       // Save
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await expect(saveBtn).toBeVisible({ timeout: 5_000 });
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // Accept: dialog closed (success) OR cancel gracefully if image upload failed
       const dialogStillOpen = await dialog.isVisible({ timeout: 2_000 }).catch(() => false);
@@ -167,7 +162,7 @@ test.describe.serial('Settings — Print Configuration CRUD', () => {
     async ({ page }) => {
       await page.goto(ROUTE);
       await expect(page).toHaveURL(/\/app\/setting\/print-configuration/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // If create was skipped (Dropzone upload not supported), skip this test too
       const found = await page.getByText(CONFIG_TITLE).isVisible({ timeout: 5_000 }).catch(() => false);
@@ -187,7 +182,7 @@ test.describe.serial('Settings — Print Configuration CRUD', () => {
     async ({ page }) => {
       await page.goto(ROUTE);
       await expect(page).toHaveURL(/\/app\/setting\/print-configuration/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // If create was skipped, skip edit too
       const titleFound = await page.getByText(CONFIG_TITLE).isVisible({ timeout: 5_000 }).catch(() => false);
@@ -216,7 +211,7 @@ test.describe.serial('Settings — Print Configuration CRUD', () => {
         }
       }
 
-      await page.waitForTimeout(600);
+      await waitForDialogOpen(page);
 
       const dialog = page.locator('[role="dialog"]').first();
       await expect(dialog).toBeVisible({ timeout: 8_000 });
@@ -231,7 +226,7 @@ test.describe.serial('Settings — Print Configuration CRUD', () => {
 
       const saveBtn = dialog.getByRole('button', { name: /^save$/i }).last();
       await saveBtn.click({ force: true });
-      await page.waitForTimeout(1_500);
+      await waitForDialogClose(page);
 
       await expect(dialog).toBeHidden({ timeout: 10_000 });
       await expect(page.getByText(CONFIG_UPDATED)).toBeVisible({ timeout: 10_000 });
@@ -246,7 +241,7 @@ test.describe.serial('Settings — Print Configuration CRUD', () => {
     async ({ page }) => {
       await page.goto(ROUTE);
       await expect(page).toHaveURL(/\/app\/setting\/print-configuration/, { timeout: 15_000 });
-      await page.waitForTimeout(2_000);
+      await waitForPageReady(page);
 
       // If create was skipped, skip delete too
       const updFound = await page.getByText(CONFIG_UPDATED).isVisible({ timeout: 5_000 }).catch(() => false);
@@ -274,7 +269,7 @@ test.describe.serial('Settings — Print Configuration CRUD', () => {
         }
       }
 
-      await page.waitForTimeout(500);
+      await waitForAnimation(page.locator('[role="dialog"]').first());
 
       // Confirm deletion
       const confirmDialog = page.locator('[role="dialog"]').first();
@@ -283,7 +278,7 @@ test.describe.serial('Settings — Print Configuration CRUD', () => {
           .getByRole('button', { name: /delete|confirm|yes/i })
           .last();
         await confirmBtn.click({ force: true });
-        await page.waitForTimeout(1_500);
+        await waitForDialogClose(page);
       }
 
       await expect(page.getByText(CONFIG_UPDATED)).not.toBeVisible({ timeout: 10_000 });

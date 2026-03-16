@@ -1,4 +1,7 @@
 import { test, expect } from '../../support/merged-fixtures';
+import { type Page } from '@playwright/test';
+import { disableLoadingOverlay } from '../../support/helpers/mantine-helpers';
+import { waitForPageReady, waitForAnimation, waitForDropdownOptions } from '../../support/helpers/wait-helpers';
 
 /**
  * PSYNAPSYS — ICD-10 Code CRUD E2E Tests (Therapist Portal)
@@ -32,25 +35,17 @@ const ICD_DESC_UPD  = `${ICD_DESC} — Updated`;
 const ICD_DIAGNOSIS = `E2E Diagnosis ${TS.toString().slice(-5)}`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-async function disableLoadingOverlay(page: any) {
-  await page.evaluate(() => {
-    document.querySelectorAll('.mantine-LoadingOverlay-overlay').forEach((el: Element) => {
-      (el as HTMLElement).style.pointerEvents = 'none';
-    });
-  });
-  await page.waitForTimeout(200);
-}
+// disableLoadingOverlay is imported from mantine-helpers
 
 /**
  * Click the action (⋮) icon button for the row that contains rowText.
  */
-async function clickRowAction(page: any, rowText: string) {
+async function clickRowAction(page: Page, rowText: string) {
   const row = page.locator('tr').filter({ hasText: rowText }).first();
   await expect(row).toBeVisible({ timeout: 10_000 });
   const actionBtn = row.locator('button').last();
   await actionBtn.click({ force: true });
-  await page.waitForTimeout(500);
+  await waitForAnimation(page.locator('[role="menu"], [role="menuitem"]').first());
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -64,7 +59,7 @@ test.describe.serial('ICD-10 Codes — Create / Read / Update / Delete', () => {
     async ({ page }) => {
       await page.goto('/app/setting/ICD-10-code');
       await expect(page).toHaveURL(/\/app\/setting\/ICD-10-code/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const addBtn = page.getByRole('button', { name: /add icd-10 code/i }).first();
       await expect(addBtn).toBeVisible({ timeout: 10_000 });
@@ -80,7 +75,7 @@ test.describe.serial('ICD-10 Codes — Create / Read / Update / Delete', () => {
     async ({ page }) => {
       await page.goto('/app/setting/ICD-10-code');
       await expect(page).toHaveURL(/\/app\/setting\/ICD-10-code/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Open modal
       await page.getByRole('button', { name: /add icd-10 code/i }).first().click();
@@ -113,7 +108,7 @@ test.describe.serial('ICD-10 Codes — Create / Read / Update / Delete', () => {
       const searchInput = page.getByPlaceholder(/search/i).first();
       if (await searchInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.fill(ICD_CODE);
-        await page.waitForTimeout(1_500);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(ICD_CODE)).toBeVisible({ timeout: 15_000 });
@@ -127,12 +122,12 @@ test.describe.serial('ICD-10 Codes — Create / Read / Update / Delete', () => {
     async ({ page }) => {
       await page.goto('/app/setting/ICD-10-code');
       await expect(page).toHaveURL(/\/app\/setting\/ICD-10-code/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       const searchInput = page.getByPlaceholder(/search/i).first();
       await expect(searchInput).toBeVisible({ timeout: 10_000 });
       await searchInput.fill(ICD_CODE);
-      await page.waitForTimeout(1_500);
+      await waitForDropdownOptions(page).catch(() => {});
 
       await expect(page.getByText(ICD_CODE)).toBeVisible({ timeout: 15_000 });
     },
@@ -145,13 +140,13 @@ test.describe.serial('ICD-10 Codes — Create / Read / Update / Delete', () => {
     async ({ page }) => {
       await page.goto('/app/setting/ICD-10-code');
       await expect(page).toHaveURL(/\/app\/setting\/ICD-10-code/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Search for the row
       const searchInput = page.getByPlaceholder(/search/i).first();
       if (await searchInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.fill(ICD_CODE);
-        await page.waitForTimeout(1_500);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(ICD_CODE)).toBeVisible({ timeout: 15_000 });
@@ -190,7 +185,7 @@ test.describe.serial('ICD-10 Codes — Create / Read / Update / Delete', () => {
       const searchInput2 = page.getByPlaceholder(/search/i).first();
       if (await searchInput2.isVisible({ timeout: 3_000 }).catch(() => false)) {
         await searchInput2.fill(ICD_CODE_UPD);
-        await page.waitForTimeout(1_500);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(ICD_CODE_UPD)).toBeVisible({ timeout: 15_000 });
@@ -204,13 +199,13 @@ test.describe.serial('ICD-10 Codes — Create / Read / Update / Delete', () => {
     async ({ page }) => {
       await page.goto('/app/setting/ICD-10-code');
       await expect(page).toHaveURL(/\/app\/setting\/ICD-10-code/, { timeout: 15_000 });
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
 
       // Search for the updated row
       const searchInput = page.getByPlaceholder(/search/i).first();
       if (await searchInput.isVisible({ timeout: 5_000 }).catch(() => false)) {
         await searchInput.fill(ICD_CODE_UPD);
-        await page.waitForTimeout(1_500);
+        await waitForDropdownOptions(page).catch(() => {});
       }
 
       await expect(page.getByText(ICD_CODE_UPD)).toBeVisible({ timeout: 15_000 });
@@ -238,7 +233,7 @@ test.describe.serial('ICD-10 Codes — Create / Read / Update / Delete', () => {
       await expect(confirmDialog).not.toBeVisible({ timeout: 10_000 });
 
       // Verify the ICD-10 code is gone
-      await page.waitForTimeout(1_500);
+      await waitForPageReady(page);
       await expect(page.getByText(ICD_CODE_UPD)).not.toBeVisible({ timeout: 10_000 });
     },
   );
